@@ -1,0 +1,20 @@
+{
+  "name": "cheprasov/php-simple-profiler",
+  "version": "0.1.0",
+  "description": "Simple profiler for PHP",
+  "homepage": "https://github.com/cheprasov/php-simple-profiler",
+  "minimum-stability": "dev",
+  "license": "proprietary",
+  "authors": [
+    {
+      "name": "Alexander Cheprasov",
+      "email": "cheprasov.84@ya.ru"
+    }
+  ],
+  "autoload": {
+    "psr-0": {"": "src/"}
+  },
+  "require": {
+    "php": ">=5.4"
+  }
+}
