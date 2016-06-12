@@ -4,7 +4,7 @@
   "description": "Simple profiler for PHP",
   "homepage": "https://github.com/cheprasov/php-simple-profiler",
   "minimum-stability": "stable",
-  "license": "proprietary",
+  "license": "MIT",
   "authors": [
     {
       "name": "Alexander Cheprasov",
