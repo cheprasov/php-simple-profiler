@@ -170,6 +170,34 @@ class Profiler {
         echo "\n", $Table->getTable();
     }
 
+
+    /**
+     * @return array
+     */
+    public static function getCounterStat() {
+        $result = [];
+        foreach (self::$counters as $name => $count) {
+            $result[] = [
+                'name'  => $name,
+                'count' => $count,
+            ];
+        }
+        return $result;
+    }
+
+    /**
+     *
+     */
+    public static function echoCounterStat() {
+        $stats = self::getCounterStat();
+        $Table = new Console_Table();
+        $Table->setHeaders(['NAME', 'COUNT']);
+        foreach ($stats as $item) {
+            self::addRowToTable($Table, $item);
+        }
+        echo "\n", $Table->getTable();
+    }
+
     /**
      * @param Console_Table $Table
      * @param array $item

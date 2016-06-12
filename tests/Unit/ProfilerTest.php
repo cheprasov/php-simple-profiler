@@ -77,8 +77,6 @@ class ProfilerTest extends PHPUnit_Framework_TestCase {
         $this->assertSame(1, count($result));
         $this->checkTimer('foo', 10, '0.10', '0.010', $result['group']['foo']);
         $this->checkTimer('bar', 10, '0.15', '0.015', $result['group']['bar']);
-
-        Profiler::echoTimerStat();
     }
 
     public function testCommonGroups2() {
@@ -96,7 +94,20 @@ class ProfilerTest extends PHPUnit_Framework_TestCase {
         $this->assertSame(2, count($result));
         $this->checkTimer('one', 10, '0.10', '0.010', $result['foo']['one']);
         $this->checkTimer('one', 10, '0.15', '0.015', $result['bar']['one']);
+    }
 
-        Profiler::echoTimerStat();
+    public function testCounter1() {
+        Profiler::count('foo');
+        Profiler::count('bar');
+        Profiler::count('par');
+        Profiler::count('foo');
+        Profiler::count('foo');
+        Profiler::count('bar', 3);
+
+        $this->assertSame([
+            ['name' => 'foo', 'count' => 3],
+            ['name' => 'bar', 'count' => 4],
+            ['name' => 'par', 'count' => 1],
+        ], Profiler::getCounterStat());
     }
 }
