@@ -1,14 +1,22 @@
 <?php
-
+/**
+ * This file is part of RedisClient.
+ * git: https://github.com/cheprasov/php-simple-profiler
+ *
+ * (C) Alexander Cheprasov <cheprasov.84@ya.ru>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
 namespace SimpleProfiler;
 
-/**
- * Class Profiler
- * @package SimpleProfiler
- */
+use Console_Table;
+
 class Profiler {
 
-    const VERSION = '0.1.0';
+    const VERSION = '1.0.0';
+
+    const GROUP_DELIMITER = '.';
 
     /**
      * @var array
@@ -34,6 +42,17 @@ class Profiler {
      * @var array
      */
     protected static $workTimers = [];
+
+    /**
+     *
+     */
+    public static function clear() {
+        self::$timers = [];
+        self::$timerCounters = [];
+        self::$timerNames = [];
+        self::$counters = [];
+        self::$workTimers = [];
+    }
 
     /**
      * @param string $name
@@ -77,17 +96,91 @@ class Profiler {
     }
 
     /**
-     * @return string[]
+     * @return array
      */
-    public static function getStat() {
+    public static function getTimerStat() {
         $result = [];
+        $groups = [];
         foreach (self::$timers as $name => $time) {
-            $result[] = sprintf('PROFILER TIMER: %s: %s sec / %s = %s',
-                $name, $time, self::$timerCounters[$name], $time / self::$timerCounters[$name]
-            );
+            $group = null;
+            if (strpos($name, self::GROUP_DELIMITER)) { // point pos > 0
+                list($group, $shortName) = explode(self::GROUP_DELIMITER, $name, 2);
+                if (!isset($result[$group])) {
+                    $result[$group] = [];
+                }
+                $link = &$result[$group];
+                $groups[] = &$result[$group];
+            } else {
+                $shortName = $name;
+                $link = &$result;
+            }
+
+            $link[$shortName] = [
+                'group'  => $group,
+                'name'   => $shortName,
+                'count'  => self::$timerCounters[$name],
+                'time'   => $time,
+                'single' => $time / self::$timerCounters[$name],
+                'cost'   => null,
+            ];
         }
+        if ($groups) {
+            self::calculateGroupData($groups);
+        }
+        return $result;
+    }
+
+    /**
+     * @param array $groups
+     */
+    protected static function calculateGroupData(array &$groups) {
+        foreach ($groups as $groupName => $items) {
+            $minTime = PHP_INT_MAX;
+            foreach ($items as $item) {
+                $minTime = min($minTime, $item['single']);
+            }
+            foreach ($items as $itemName => $item) {
+                $groups[$groupName][$itemName]['cost'] = round($item['single'] / $minTime * 100) . ' %';
+            }
+        }
+    }
+
+    /**
+     *
+     */
+    public static function echoTimerStat() {
+        $stats = self::getTimerStat();
+        $Table = new Console_Table();
+        $Table->setHeaders(['GROUP', 'NAME', 'COUNT', 'TIME', 'SINGLE', 'COST']);
+        $first = true;
+        foreach ($stats as $item) {
+            if ($first) {
+                $first = false;
+            } else {
+                $Table->addSeparator();
+            }
+            if (isset($item['name'])) {
+                self::addRowToTable($Table, $item);
+            } else {
+                foreach ($item as $elem) {
+                    self::addRowToTable($Table, $elem);
+                }
+            }
+        }
+        echo "\n", $Table->getTable();
+    }
+
+
+    /**
+     * @return array
+     */
+    public static function getCounterStat() {
+        $result = [];
         foreach (self::$counters as $name => $count) {
-            $result[] = sprintf('PROFILER COUNT: %s: %s', $name, $count);
+            $result[] = [
+                'name'  => $name,
+                'count' => $count,
+            ];
         }
         return $result;
     }
@@ -95,7 +188,21 @@ class Profiler {
     /**
      *
      */
-    public static function echoStat() {
-        echo "\n". implode("\n", self::getStat()) ."\n";
+    public static function echoCounterStat() {
+        $stats = self::getCounterStat();
+        $Table = new Console_Table();
+        $Table->setHeaders(['NAME', 'COUNT']);
+        foreach ($stats as $item) {
+            self::addRowToTable($Table, $item);
+        }
+        echo "\n", $Table->getTable();
+    }
+
+    /**
+     * @param Console_Table $Table
+     * @param array $item
+     */
+    protected static function addRowToTable(Console_Table $Table, array $item) {
+        $Table->addRow($item);
     }
 }
