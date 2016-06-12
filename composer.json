@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Simple profiler for PHP",
   "homepage": "https://github.com/cheprasov/php-simple-profiler",
-  "minimum-stability": "dev",
+  "minimum-stability": "stable",
   "license": "proprietary",
   "authors": [
     {
