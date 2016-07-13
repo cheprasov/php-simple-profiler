@@ -96,6 +96,28 @@ class ProfilerTest extends PHPUnit_Framework_TestCase {
         $this->checkTimer('one', 10, '0.15', '0.015', $result['bar']['one']);
     }
 
+    public function testTableCommonGroups() {
+        for ($i = 0; $i < 10; ++$i) {
+            Profiler::start('foo.one');
+            usleep(10000);
+            Profiler::stop();
+            Profiler::start('bar.two');
+            usleep(15000);
+            Profiler::stop();
+        }
+
+        $this->assertSame(
+            "+-------+-------+------+\n" .
+            "| cost  | count | name |\n" .
+            "+-------+-------+------+\n" .
+            "| 100 % | 10    | one  |\n" .
+            "+-------+-------+------+\n" .
+            "| 100 % | 10    | two  |\n" .
+            "+-------+-------+------+",
+            Profiler::getTimerTableStat(['cost', 'count', 'name'])
+        );
+    }
+
     public function testCounter1() {
         Profiler::count('foo');
         Profiler::count('bar');

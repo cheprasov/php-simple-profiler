@@ -14,7 +14,7 @@ use Console_Table;
 
 class Profiler {
 
-    const VERSION = '1.0.0';
+    const VERSION = '1.1.0';
 
     const GROUP_DELIMITER = '.';
 
@@ -59,7 +59,8 @@ class Profiler {
      */
     public static function start($name) {
         self::$timerNames[] = $name;
-        self::$workTimers[$name] = microtime(true);
+        $link = &self::$workTimers[$name];
+        $link = microtime(true);
     }
 
     /**
@@ -77,7 +78,7 @@ class Profiler {
             self::$timerCounters[$name] = 1;
             self::$timers[$name] = $time - self::$workTimers[$name];
         } else {
-            self::$timerCounters[$name]++;
+            ++self::$timerCounters[$name];
             self::$timers[$name] += $time - self::$workTimers[$name];
         }
         unset(self::$workTimers[$name]);
@@ -85,13 +86,13 @@ class Profiler {
 
     /**
      * @param string $name
-     * @param int $incr
+     * @param int $count
      */
-    public static function count($name, $incr = 1) {
+    public static function count($name, $count = 1) {
         if (isset(self::$counters[$name])) {
-            self::$counters[$name] += $incr;
+            self::$counters[$name] += $count;
         } else {
-            self::$counters[$name] = $incr;
+            self::$counters[$name] = $count;
         }
     }
 
@@ -103,7 +104,7 @@ class Profiler {
         $groups = [];
         foreach (self::$timers as $name => $time) {
             $group = null;
-            if (strpos($name, self::GROUP_DELIMITER)) { // point pos > 0
+            if (strpos($name, self::GROUP_DELIMITER)) { // pos > 0
                 list($group, $shortName) = explode(self::GROUP_DELIMITER, $name, 2);
                 if (!isset($result[$group])) {
                     $result[$group] = [];
@@ -146,12 +147,16 @@ class Profiler {
     }
 
     /**
-     *
+     * @param string[] $fields
+     * @return string
      */
-    public static function echoTimerStat() {
+    public static function getTimerTableStat($fields = []) {
+        if (!$fields) {
+            $fields = ['group', 'name', 'count', 'time', 'single', 'cost'];
+        }
         $stats = self::getTimerStat();
         $Table = new Console_Table();
-        $Table->setHeaders(['GROUP', 'NAME', 'COUNT', 'TIME', 'SINGLE', 'COST']);
+        $Table->setHeaders($fields);
         $first = true;
         foreach ($stats as $item) {
             if ($first) {
@@ -160,16 +165,22 @@ class Profiler {
                 $Table->addSeparator();
             }
             if (isset($item['name'])) {
-                self::addRowToTable($Table, $item);
+                self::addRowToTable($Table, $item, $fields);
             } else {
                 foreach ($item as $elem) {
-                    self::addRowToTable($Table, $elem);
+                    self::addRowToTable($Table, $elem, $fields);
                 }
             }
         }
-        echo "\n", $Table->getTable();
+        return trim($Table->getTable());
     }
 
+    /**
+     * @param array $fields
+     */
+    public static function echoTimerStat($fields = []) {
+        echo "\n", self::getTimerTableStat($fields);
+    }
 
     /**
      * @return array
@@ -186,23 +197,37 @@ class Profiler {
     }
 
     /**
+     * @return string
+     */
+    public static function getCounterTableStat() {
+        $stats = self::getCounterStat();
+        $Table = new Console_Table();
+        $Table->setHeaders(['name', 'count']);
+        foreach ($stats as $item) {
+            self::addRowToTable($Table, $item, ['name', 'count']);
+        }
+        return trim($Table->getTable());
+    }
+
+    /**
      *
      */
     public static function echoCounterStat() {
-        $stats = self::getCounterStat();
-        $Table = new Console_Table();
-        $Table->setHeaders(['NAME', 'COUNT']);
-        foreach ($stats as $item) {
-            self::addRowToTable($Table, $item);
-        }
-        echo "\n", $Table->getTable();
+        echo "\n", self::getCounterTableStat();
     }
 
     /**
      * @param Console_Table $Table
      * @param array $item
+     * @param string[] $fields
      */
-    protected static function addRowToTable(Console_Table $Table, array $item) {
-        $Table->addRow($item);
+    protected static function addRowToTable(Console_Table $Table, array $item, array $fields) {
+        $row = [];
+        foreach ($fields as $field) {
+            if (array_key_exists($field, $item)) {
+                $row[] = $item[$field];
+            }
+        }
+        $Table->addRow($row);
     }
 }
