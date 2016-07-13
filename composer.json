@@ -1,6 +1,6 @@
 {
   "name": "cheprasov/php-simple-profiler",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Simple profiler for PHP",
   "homepage": "https://github.com/cheprasov/php-simple-profiler",
   "minimum-stability": "stable",
