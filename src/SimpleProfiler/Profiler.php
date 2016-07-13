@@ -179,7 +179,7 @@ class Profiler {
      * @param array $fields
      */
     public static function echoTimerStat($fields = []) {
-        echo "\n", self::getTimerTableStat($fields);
+        echo "\n", self::getTimerTableStat($fields), "\n";
     }
 
     /**
@@ -213,7 +213,7 @@ class Profiler {
      *
      */
     public static function echoCounterStat() {
-        echo "\n", self::getCounterTableStat();
+        echo "\n", self::getCounterTableStat(), "\n";
     }
 
     /**
