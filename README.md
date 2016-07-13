@@ -3,7 +3,15 @@
 Simple Profiler for PHP
 =========
 
-## Installation
+### Examples
+
+```
+    Profiler::start('some name');
+    // some code for profiling
+    Profiler::stop();
+
+    Profiler::echoTimerStat();
+```
 
 ### Composer
 
