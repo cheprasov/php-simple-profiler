@@ -3,7 +3,7 @@
  * This file is part of RedisClient.
  * git: https://github.com/cheprasov/php-simple-profiler
  *
- * (C) Alexander Cheprasov <cheprasov.84@ya.ru>
+ * (C) Alexander Cheprasov <acheprasov84@gmail.com>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
@@ -131,5 +131,12 @@ class ProfilerTest extends PHPUnit_Framework_TestCase {
             ['name' => 'bar', 'count' => 4],
             ['name' => 'par', 'count' => 1],
         ], Profiler::getCounterStat());
+    }
+
+    public function testloadClass() {
+        $this->markTestSkipped();
+        //var_dump(__FILE__);
+        //chdir(__DIR__);
+        //Profiler::loadClass('./../../src/SimpleProfiler/Profiler.php');
     }
 }

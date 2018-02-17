@@ -3,7 +3,7 @@
  * This file is part of RedisClient.
  * git: https://github.com/cheprasov/php-simple-profiler
  *
- * (C) Alexander Cheprasov <cheprasov.84@ya.ru>
+ * (C) Alexander Cheprasov <acheprasov84@gmail.com>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
@@ -14,7 +14,7 @@ use Console_Table;
 
 class Profiler {
 
-    const VERSION = '1.1.0';
+    const VERSION = '2.0.0';
 
     const GROUP_DELIMITER = '.';
 
@@ -230,4 +230,35 @@ class Profiler {
         }
         $Table->addRow($row);
     }
+
+    /**
+     * @param string $class
+     */
+    public static function loadClass($class) {
+        $file = trim(php_strip_whitespace($class));
+
+        if (substr($file, 0, 5) === '<?php') {
+            $file = trim(substr($file, 5));
+        }
+
+        if (substr($file, -2) === '?>') {
+            $file = trim(substr($file, 0, -2));
+        }
+
+        $pattern = '/\bfunction\s+(\w+)\s*\([^)]*\)\s*\{/i';
+        $m = null;
+        $flag = PREG_OFFSET_CAPTURE;
+        $offset = 0;
+
+        while (preg_match($pattern, $file, $m, $flag, $offset) && $m) {
+            $m = $m[0];
+            $offset = $m[1] + strlen($m[0]);
+            $file = substr($file, 0, $offset)
+                . '$SimpleProfilerTimer = new \SimpleProfiler\Timer(\'PROFILER.\' . __METHOD__);'
+                . substr($file, $offset);
+        }
+
+        eval($file);
+    }
 }
+?>
