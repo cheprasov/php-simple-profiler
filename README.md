@@ -103,32 +103,32 @@ Example of output:
 
 1. Using timers tool
 ```php
-\SimpleProfiler\Profiler::start('someName');
+\SimpleProfiler\Profiler::startTimer('someName');
 
 // some code
 
-\SimpleProfiler\Profiler::stop('someName');
+\SimpleProfiler\Profiler::stopTimer('someName');
 ```
 
 For grouping times use dot `.` as separator for group and name.
 Example of grouping calculation please see above.
 
 ```php
-\SimpleProfiler\Profiler::start('Group1.someName');
+\SimpleProfiler\Profiler::startTimer('Group1.someName');
 
 // some code
 
-\SimpleProfiler\Profiler::stop('Group1.someName');
+\SimpleProfiler\Profiler::stopTimer('Group1.someName');
 ```
 
 2. Using counter tool
 
 For collection count of some event just use next code
 ```php
-\SimpleProfiler\Profiler::count('Counter_of_some_event');
+\SimpleProfiler\Profiler::counter('Counter_of_some_event');
 
 // second paramenet is count of increment
-\SimpleProfiler\Profiler::count('Counter_of_some_event', 3);
+\SimpleProfiler\Profiler::counter('Counter_of_some_event', 3);
 ```
 
 ### Composer

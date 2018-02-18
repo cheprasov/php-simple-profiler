@@ -21,10 +21,10 @@ class Timer {
      * @param string $method
      */
     public function __construct($method) {
-        Profiler::start($this->method = $method);
+        Profiler::startTimer($this->method = $method);
     }
 
     public function __destruct() {
-        Profiler::stop($this->method);
+        Profiler::stopTimer($this->method);
     }
 }

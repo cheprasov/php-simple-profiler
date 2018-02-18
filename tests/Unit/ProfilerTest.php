@@ -32,9 +32,9 @@ class ProfilerTest extends PHPUnit_Framework_TestCase {
     }
 
     public function testCommonSimple() {
-        Profiler::start('foo');
+        Profiler::startTimer('foo');
         sleep(1);
-        Profiler::stop();
+        Profiler::stopTimer();
 
         $result = Profiler::getTimerStat();
 
@@ -43,17 +43,17 @@ class ProfilerTest extends PHPUnit_Framework_TestCase {
     }
 
     public function testCommonSimple2() {
-        Profiler::start('foo');
+        Profiler::startTimer('foo');
         usleep(300000);
-        Profiler::stop();
+        Profiler::stopTimer();
 
-        Profiler::start('bar');
+        Profiler::startTimer('bar');
         usleep(200000);
-        Profiler::stop();
+        Profiler::stopTimer();
 
-        Profiler::start('bar');
+        Profiler::startTimer('bar');
         usleep(100000);
-        Profiler::stop();
+        Profiler::stopTimer();
 
         $result = Profiler::getTimerStat();
 
@@ -64,12 +64,12 @@ class ProfilerTest extends PHPUnit_Framework_TestCase {
 
     public function testCommonGroups() {
         for ($i = 0; $i < 10; ++$i) {
-            Profiler::start('group.foo');
+            Profiler::startTimer('group.foo');
             usleep(10000);
-            Profiler::stop();
-            Profiler::start('group.bar');
+            Profiler::stopTimer();
+            Profiler::startTimer('group.bar');
             usleep(15000);
-            Profiler::stop();
+            Profiler::stopTimer();
         }
 
         $result = Profiler::getTimerStat();
@@ -81,12 +81,12 @@ class ProfilerTest extends PHPUnit_Framework_TestCase {
 
     public function testCommonGroups2() {
         for ($i = 0; $i < 10; ++$i) {
-            Profiler::start('foo.one');
+            Profiler::startTimer('foo.one');
             usleep(10000);
-            Profiler::stop();
-            Profiler::start('bar.one');
+            Profiler::stopTimer();
+            Profiler::startTimer('bar.one');
             usleep(15000);
-            Profiler::stop();
+            Profiler::stopTimer();
         }
 
         $result = Profiler::getTimerStat();
@@ -97,12 +97,12 @@ class ProfilerTest extends PHPUnit_Framework_TestCase {
     }
 
     public function testCounter1() {
-        Profiler::count('foo');
-        Profiler::count('bar');
-        Profiler::count('par');
-        Profiler::count('foo');
-        Profiler::count('foo');
-        Profiler::count('bar', 3);
+        Profiler::counter('foo');
+        Profiler::counter('bar');
+        Profiler::counter('par');
+        Profiler::counter('foo');
+        Profiler::counter('foo');
+        Profiler::counter('bar', 3);
 
         $this->assertSame([
             ['name' => 'foo', 'count' => 3],
@@ -151,8 +151,6 @@ EXPECT;
             ],
             array_keys($data['Profiler'])
         );
-
-        print_r(Profiler::getLog());
 
         $this->assertSame(1, $data['Profiler']['SimpleProfiler\Tests\{closure}#1a']['count']);
         $this->assertSame(1, $data['Profiler']['SimpleProfiler\Tests\bar']['count']);

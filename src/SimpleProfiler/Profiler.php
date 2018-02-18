@@ -55,7 +55,7 @@ class Profiler {
     /**
      * @param string $name
      */
-    public static function start($name) {
+    public static function startTimer($name) {
         self::$timerNames[] = $name;
         $time = microtime(true);
 
@@ -72,7 +72,7 @@ class Profiler {
     /**
      * @param string|null $name
      */
-    public static function stop($name = null) {
+    public static function stopTimer($name = null) {
         $time = microtime(true);
         if (!$name) {
             $name = array_pop(self::$timerNames);
@@ -89,7 +89,7 @@ class Profiler {
      * @param string $name
      * @param int $count
      */
-    public static function count($name, $count = 1) {
+    public static function counter($name, $count = 1) {
         if (isset(self::$counters[$name])) {
             self::$counters[$name] += $count;
         } else {
