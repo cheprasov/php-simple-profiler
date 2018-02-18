@@ -11,7 +11,7 @@ It helps to add profiler to your php-project easy.
 - Has 'counter' and 'timer' tools.
 - Has grouping for compare elements.
 
-### How to add profiler to project
+### How to add the profiler to you project
 
 All you need is open your 'autoload' function, and use the profiler's function for loading class.
 
@@ -20,20 +20,24 @@ Example:
 // Path to autoloader class for SimpleProfiler
 include ('../php-simple-profiler/src/autoloader.php');
 
-// It is some function for load your classes
-spl_autoload_register(function($class) {
-    if (0 !== strpos($class, __NAMESPACE__.'\\')) {
-        return;
-    }
-    $classPath = __DIR__ . '/' . str_replace('\\', '/', $class) . '.php';
-    if (file_exists($classPath)) {
-        // Disable old way to include class by classPath
-        //include $classPath;
+// It is some function for loading your classes
+spl_autoload_register(
+    function($class) {
+        if (0 !== strpos($class, __NAMESPACE__.'\\')) {
+            return;
+        }
+        $classPath = __DIR__ . '/' . str_replace('\\', '/', $class) . '.php';
+        if (file_exists($classPath)) {
+            // Disable old way to include class by classPath
+            //include $classPath;
 
-        // Use Profiler function for load a class
-        \SimpleProfiler\Profiler::loadFile($classPath);
-    }
-}, false, true);
+            // Use Profiler function for load a class
+            \SimpleProfiler\Profiler::loadFile($classPath);
+        }
+    },
+    false,
+    true
+);
 ```
 
 ### Examples
