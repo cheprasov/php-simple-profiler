@@ -1,6 +1,6 @@
 <?php
 /**
- * This file is part of RedisClient.
+ * This file is part of SimpleProfiler.
  * git: https://github.com/cheprasov/php-simple-profiler
  *
  * (C) Alexander Cheprasov <acheprasov84@gmail.com>

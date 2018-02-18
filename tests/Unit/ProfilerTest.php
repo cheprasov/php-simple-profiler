@@ -20,15 +20,15 @@ class ProfilerTest extends PHPUnit_Framework_TestCase {
     /**
      * @param string $name
      * @param int $count
-     * @param float $time
-     * @param float $single
+     * @param float $full_time
+     * @param float $average_time
      * @param array $actual
      */
-    protected function checkTimer($name, $count, $time, $single, $actual) {
+    protected function checkTimer($name, $count, $full_time, $average_time, $actual) {
         $this->assertSame($name, $actual['name']);
         $this->assertSame($count, $actual['count']);
-        $this->assertSame($time, substr($actual['time'], 0, strlen($time)));
-        $this->assertSame($single, substr($actual['single'], 0, strlen($single)));
+        $this->assertSame($full_time, substr($actual['full_time'], 0, strlen($full_time)));
+        $this->assertSame($average_time, substr($actual['average_time'], 0, strlen($average_time)));
     }
 
     public function testCommonSimple() {
@@ -39,7 +39,7 @@ class ProfilerTest extends PHPUnit_Framework_TestCase {
         $result = Profiler::getTimerStat();
 
         $this->assertSame(1, count($result));
-        $this->checkTimer('foo', 1, '1.00', '1.00', $result['foo']);
+        $this->checkTimer('foo', 1, '1.00', '1.00', $result['default']['foo']);
     }
 
     public function testCommonSimple2() {
@@ -57,9 +57,9 @@ class ProfilerTest extends PHPUnit_Framework_TestCase {
 
         $result = Profiler::getTimerStat();
 
-        $this->assertSame(2, count($result));
-        $this->checkTimer('foo', 1, '0.30', '0.30', $result['foo']);
-        $this->checkTimer('bar', 2, '0.30', '0.15', $result['bar']);
+        $this->assertSame(2, count($result['default']));
+        $this->checkTimer('foo', 1, '0.30', '0.30', $result['default']['foo']);
+        $this->checkTimer('bar', 2, '0.30', '0.15', $result['default']['bar']);
     }
 
     public function testCommonGroups() {
@@ -96,28 +96,6 @@ class ProfilerTest extends PHPUnit_Framework_TestCase {
         $this->checkTimer('one', 10, '0.15', '0.015', $result['bar']['one']);
     }
 
-    public function testTableCommonGroups() {
-        for ($i = 0; $i < 10; ++$i) {
-            Profiler::start('foo.one');
-            usleep(10000);
-            Profiler::stop();
-            Profiler::start('bar.two');
-            usleep(15000);
-            Profiler::stop();
-        }
-
-        $this->assertSame(
-            "+-------+-------+------+\n" .
-            "| cost  | count | name |\n" .
-            "+-------+-------+------+\n" .
-            "| 100 % | 10    | one  |\n" .
-            "+-------+-------+------+\n" .
-            "| 100 % | 10    | two  |\n" .
-            "+-------+-------+------+",
-            Profiler::getTimerTableStat(['cost', 'count', 'name'])
-        );
-    }
-
     public function testCounter1() {
         Profiler::count('foo');
         Profiler::count('bar');
@@ -133,10 +111,54 @@ class ProfilerTest extends PHPUnit_Framework_TestCase {
         ], Profiler::getCounterStat());
     }
 
-    public function testloadClass() {
-        $this->markTestSkipped();
-        //var_dump(__FILE__);
-        //chdir(__DIR__);
-        //Profiler::loadClass('./../../src/SimpleProfiler/Profiler.php');
+    public function testInjectProfilerToCode() {
+        $file = trim(php_strip_whitespace(__DIR__ . '/../TestClass.php'));
+        $result = Profiler::injectProfilerToCode($file);
+
+        $this->assertSame(11, substr_count($result, '$SimpleProfilerTimer = new \SimpleProfiler\Timer'));
+
+        $expect =<<<'EXPECT'
+<?php
+ namespace SimpleProfiler\Tests; $foo = function() {$SimpleProfilerTimer = new \SimpleProfiler\Timer('Profiler.' . __METHOD__ . '#1a'); return 'foo'; }; $foo(); function bar() {$SimpleProfilerTimer = new \SimpleProfiler\Timer('Profiler.' . __METHOD__); return 'bar'; } bar(); class TestClass { public static function getSomeData() {$SimpleProfilerTimer = new \SimpleProfiler\Timer('Profiler.' . __METHOD__); return 'some data'; } public static function get_random_int ($min = 0, $max = 100) {$SimpleProfilerTimer = new \SimpleProfiler\Timer('Profiler.' . __METHOD__); return mt_rand($min, $max); } public static function __strange__name__ ($_a = 'Alexander') {$SimpleProfilerTimer = new \SimpleProfiler\Timer('Profiler.' . __METHOD__); return $_a; } public static function multi_line_name ( $a, $b, $c ) {$SimpleProfilerTimer = new \SimpleProfiler\Timer('Profiler.' . __METHOD__); return $a . $b . $c; } public static function anonymous() {$SimpleProfilerTimer = new \SimpleProfiler\Timer('Profiler.' . __METHOD__); $get42 = function() {$SimpleProfilerTimer = new \SimpleProfiler\Timer('Profiler.' . __METHOD__ . '#du'); return 42; }; return $get42(); } public static function sleep() {$SimpleProfilerTimer = new \SimpleProfiler\Timer('Profiler.' . __METHOD__); usleep(100); } public static function withParams($function = null) {$SimpleProfilerTimer = new \SimpleProfiler\Timer('Profiler.' . __METHOD__); return $function; } public static function withParams2($a = 'function', $b = '){', $c = '{}') {$SimpleProfilerTimer = new \SimpleProfiler\Timer('Profiler.' . __METHOD__); return $a; } }
+EXPECT;
+
+        $this->assertSame($expect, $result);
+    }
+
+    public function testProfilerCode() {
+        Profiler::loadFile(__DIR__ . '/../TestClass.php');
+
+        for ($i = 0 ; $i < 10; $i++) {
+            \SimpleProfiler\Tests\TestClass::anonymous();
+        }
+        \SimpleProfiler\Tests\TestClass::sleep();
+        for ($i = 0 ; $i < 2; $i++) {
+            \SimpleProfiler\Tests\TestClass::get_random_int();
+        }
+
+        $data = Profiler::getTimerStat();
+
+        $this->assertSame(6, count($data['Profiler']));
+
+        $this->assertSame(
+            [
+                'SimpleProfiler\Tests\{closure}#1a',
+                'SimpleProfiler\Tests\bar',
+                'SimpleProfiler\Tests\TestClass::anonymous',
+                'SimpleProfiler\Tests\TestClass::SimpleProfiler\Tests\{closure}#du',
+                'SimpleProfiler\Tests\TestClass::sleep',
+                'SimpleProfiler\Tests\TestClass::get_random_int',
+            ],
+            array_keys($data['Profiler'])
+        );
+
+        print_r(Profiler::getLog());
+
+        $this->assertSame(1, $data['Profiler']['SimpleProfiler\Tests\{closure}#1a']['count']);
+        $this->assertSame(1, $data['Profiler']['SimpleProfiler\Tests\bar']['count']);
+        $this->assertSame(10, $data['Profiler']['SimpleProfiler\Tests\TestClass::anonymous']['count']);
+        $this->assertSame(10, $data['Profiler']['SimpleProfiler\Tests\TestClass::SimpleProfiler\Tests\{closure}#du']['count']);
+        $this->assertSame(1, $data['Profiler']['SimpleProfiler\Tests\TestClass::sleep']['count']);
+        $this->assertSame(2, $data['Profiler']['SimpleProfiler\Tests\TestClass::get_random_int']['count']);
     }
 }
