@@ -7,16 +7,17 @@ It helps to add profiler to your php-project easy.
 
 ##### Features:
 - Easy to implement.
-- Written on PHP.
 - Has 'counter' and 'timer' tools.
 - Has grouping for compare elements.
+- Support anonymous function.
+- Written on PHP.
 
 ### 1. How to add the profiler to you project
 
 All you need is open your 'autoload' function, and use the profiler's function for loading class.
 
 ```php
-\SimpleProfiler\Profiler::loadFile(string $classPath, bool $inject_profiler = true) : void`
+\SimpleProfiler\Profiler::loadFile(string $classPath, bool $inject_profiler = true) : void
 ```
 
 Example:
@@ -52,7 +53,7 @@ The Profiler has 2 methods that returns semi-raw collected data, that you can us
 
 `\SimpleProfiler\Profiler::getCounterStat() : array`
 
-You can use function `\SimpleProfiler\Profiler::getLog` for already getting formatted log data.
+You can use function `\SimpleProfiler\Profiler::getLog` for getting already formatted log data.
 
 Example of output:
 ```
@@ -98,6 +99,8 @@ Example of output:
  > Counter_of_some_event : 2
  > Some_event : 3
 ```
+
+Note. Calculation of `cost` does not accounting nested function, it just uses sum time of elements in a group.
 
 ### Usage
 
@@ -973,6 +976,10 @@ $response->addHTML('<pre>' . \SimpleProfiler\Profiler::getLog() . '</pre>');
    count: 1, avg_time: 0.000488 sec, full_time: 0.000488 sec
    cost: [] 0.2 %
 ```
+
+### TODO
+
+I want to add accounting of nested functions for calculation correct cost percentage.
 
 ### Composer
 
