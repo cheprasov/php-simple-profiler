@@ -1,20 +1,18 @@
 <?php
 /**
- * This file is part of RedisClient.
+ * This file is part of SimpleProfiler.
  * git: https://github.com/cheprasov/php-simple-profiler
  *
- * (C) Alexander Cheprasov <cheprasov.84@ya.ru>
+ * (C) Alexander Cheprasov <acheprasov84@gmail.com>
  *
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
 namespace SimpleProfiler;
 
-use Console_Table;
-
 class Profiler {
 
-    const VERSION = '1.1.0';
+    const VERSION = '2.0.0';
 
     const GROUP_DELIMITER = '.';
 
@@ -57,16 +55,24 @@ class Profiler {
     /**
      * @param string $name
      */
-    public static function start($name) {
+    public static function startTimer($name) {
         self::$timerNames[] = $name;
-        $link = &self::$workTimers[$name];
-        $link = microtime(true);
+        $time = microtime(true);
+
+        if (!isset(self::$timerCounters[$name])) {
+            self::$timerCounters[$name] = 1;
+            self::$timers[$name] = 0;
+        } else {
+            ++self::$timerCounters[$name];
+        }
+
+        self::$workTimers[$name] = $time;
     }
 
     /**
      * @param string|null $name
      */
-    public static function stop($name = null) {
+    public static function stopTimer($name = null) {
         $time = microtime(true);
         if (!$name) {
             $name = array_pop(self::$timerNames);
@@ -74,13 +80,8 @@ class Profiler {
         if (!isset(self::$workTimers[$name])) {
             return;
         }
-        if (!isset(self::$timerCounters[$name])) {
-            self::$timerCounters[$name] = 1;
-            self::$timers[$name] = $time - self::$workTimers[$name];
-        } else {
-            ++self::$timerCounters[$name];
-            self::$timers[$name] += $time - self::$workTimers[$name];
-        }
+
+        self::$timers[$name] += $time - self::$workTimers[$name];
         unset(self::$workTimers[$name]);
     }
 
@@ -88,7 +89,7 @@ class Profiler {
      * @param string $name
      * @param int $count
      */
-    public static function count($name, $count = 1) {
+    public static function counter($name, $count = 1) {
         if (isset(self::$counters[$name])) {
             self::$counters[$name] += $count;
         } else {
@@ -103,26 +104,26 @@ class Profiler {
         $result = [];
         $groups = [];
         foreach (self::$timers as $name => $time) {
-            $group = null;
             if (strpos($name, self::GROUP_DELIMITER)) { // pos > 0
                 list($group, $shortName) = explode(self::GROUP_DELIMITER, $name, 2);
-                if (!isset($result[$group])) {
-                    $result[$group] = [];
-                }
-                $link = &$result[$group];
-                $groups[] = &$result[$group];
             } else {
+                $group = 'default';
                 $shortName = $name;
-                $link = &$result;
             }
 
+            if (!isset($result[$group])) {
+                $result[$group] = [];
+            }
+            $link = &$result[$group];
+            $groups[] = &$result[$group];
+
             $link[$shortName] = [
-                'group'  => $group,
-                'name'   => $shortName,
-                'count'  => self::$timerCounters[$name],
-                'time'   => $time,
-                'single' => $time / self::$timerCounters[$name],
-                'cost'   => null,
+                'group' => $group,
+                'name' => $shortName,
+                'count' => self::$timerCounters[$name],
+                'full_time' => $time,
+                'average_time' => $time / self::$timerCounters[$name],
+                'cost' => null,
             ];
         }
         if ($groups) {
@@ -136,50 +137,14 @@ class Profiler {
      */
     protected static function calculateGroupData(array &$groups) {
         foreach ($groups as $groupName => $items) {
-            $minTime = PHP_INT_MAX;
+            $time = 0;
             foreach ($items as $item) {
-                $minTime = min($minTime, $item['single']);
+                $time += $item['full_time'];
             }
             foreach ($items as $itemName => $item) {
-                $groups[$groupName][$itemName]['cost'] = round($item['single'] / $minTime * 100) . ' %';
+                $groups[$groupName][$itemName]['cost'] = round($item['full_time'] / $time * 100, 1) . ' %';
             }
         }
-    }
-
-    /**
-     * @param string[] $fields
-     * @return string
-     */
-    public static function getTimerTableStat($fields = []) {
-        if (!$fields) {
-            $fields = ['group', 'name', 'count', 'time', 'single', 'cost'];
-        }
-        $stats = self::getTimerStat();
-        $Table = new Console_Table();
-        $Table->setHeaders($fields);
-        $first = true;
-        foreach ($stats as $item) {
-            if ($first) {
-                $first = false;
-            } else {
-                $Table->addSeparator();
-            }
-            if (isset($item['name'])) {
-                self::addRowToTable($Table, $item, $fields);
-            } else {
-                foreach ($item as $elem) {
-                    self::addRowToTable($Table, $elem, $fields);
-                }
-            }
-        }
-        return trim($Table->getTable());
-    }
-
-    /**
-     * @param array $fields
-     */
-    public static function echoTimerStat($fields = []) {
-        echo "\n", self::getTimerTableStat($fields), "\n";
     }
 
     /**
@@ -199,35 +164,117 @@ class Profiler {
     /**
      * @return string
      */
-    public static function getCounterTableStat() {
-        $stats = self::getCounterStat();
-        $Table = new Console_Table();
-        $Table->setHeaders(['name', 'count']);
-        foreach ($stats as $item) {
-            self::addRowToTable($Table, $item, ['name', 'count']);
-        }
-        return trim($Table->getTable());
-    }
-
-    /**
-     *
-     */
-    public static function echoCounterStat() {
-        echo "\n", self::getCounterTableStat(), "\n";
-    }
-
-    /**
-     * @param Console_Table $Table
-     * @param array $item
-     * @param string[] $fields
-     */
-    protected static function addRowToTable(Console_Table $Table, array $item, array $fields) {
-        $row = [];
-        foreach ($fields as $field) {
-            if (array_key_exists($field, $item)) {
-                $row[] = $item[$field];
+    public static function getLog() {
+        $log = [];
+        foreach (self::getTimerStat() as $group_name => $group) {
+            $log[] = "# Group [ {$group_name} ]";
+            $log[] = '';
+            $i = 0;
+            foreach ($group as $item) {
+                $i++;
+                $log[] = "{$i}) {$item['name']}";
+                $avg_time = sprintf('%02.6f', $item['average_time']);
+                $full_time = sprintf('%02.6f', $item['full_time']);
+                $log[] = "   count: {$item['count']}, avg_time: {$avg_time} sec, full_time: {$full_time} sec";
+                $cost = (int)round(trim($item['cost'], '%'));
+                $log[] = '   cost: [' . str_repeat('-', $cost) . '] ' . $item['cost'];
+                $log[] = '';
             }
+            $log[] = '';
         }
-        $Table->addRow($row);
+
+        if ($counters = self::getCounterStat()) {
+            $log[] = '# COUNTERS:';
+            foreach ($counters as $counter) {
+                $log[] = " > {$counter['name']} : {$counter['count']}";
+            }
+            $log[] = '';
+        }
+
+        return implode(PHP_EOL, $log);
+    }
+
+    /**
+     * @param string $filename
+     * @param bool $inject_profiler
+     */
+    public static function loadFile($filename, $inject_profiler = true) {
+        if (!$inject_profiler) {
+            include($filename);
+            return;
+        }
+
+        $file = trim(php_strip_whitespace($filename));
+        $file = self::injectProfilerToCode($file);
+
+        if (substr($file, 0, 5) === '<?php') {
+            $file = trim(substr($file, 5));
+        }
+
+        if (substr($file, -2) === '?>') {
+            $file = trim(substr($file, 0, -2));
+        }
+
+        eval($file);
+    }
+
+    /**
+     * @param string $source
+     * @return string
+     */
+    public static function injectProfilerToCode($source) {
+        $tokens = token_get_all($source);
+        $code = '';
+
+        $function_found = false;
+        $function_name = null;
+        $stack = [];
+
+        foreach ($tokens as $i => $token) {
+            if (is_string($token)) {
+                $id = null;
+                $text = $token;
+            } else {
+                list($id, $text) = $token;
+            }
+            $code .= $text;
+
+            if ($id === T_FUNCTION) {
+                $function_found = true;
+                $function_name = null;
+                $stack = [];
+                continue;
+            }
+
+            if ($function_found) {
+                if ($id === T_STRING && !$stack) {
+                    $function_name = $text;
+                    continue;
+                }
+
+                if (!isset($id)) {
+                    if ($text === '(') {
+                        $stack[] = '(';
+                        continue;
+                    }
+                    if ($text === ')') {
+                        array_pop($stack);
+                        continue;
+                    }
+                    if ($text === '{' && !$stack) {
+                        $function_found = false;
+                        if ($function_name) {
+                            $name = '__METHOD__';
+                        } else {
+                            $name =  '__METHOD__ . \'_' . base_convert($i, 10, 36) . '\'';
+                        }
+                        $code .= '$SimpleProfilerTimer = new \SimpleProfiler\Timer(\'Profiler.\' . ' . $name . ');';
+                        continue;
+                    }
+                }
+            }
+
+        }
+        return $code;
     }
 }
