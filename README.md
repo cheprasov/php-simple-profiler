@@ -1,6 +1,6 @@
 [![MIT license](http://img.shields.io/badge/license-MIT-brightgreen.svg)](http://opensource.org/licenses/MIT)
 
-Simple Profiler for PHP
+SimpleProfiler v2.0.0 for PHP >= 5.5
 =========
 
 It helps to add profiler to your php-project easy.
