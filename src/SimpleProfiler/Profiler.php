@@ -219,120 +219,62 @@ class Profiler {
     }
 
     /**
-     * @param $source
+     * @param string $source
      * @return string
      */
     public static function injectProfilerToCode($source) {
-        $function_positions = self::getFunctionPositions($source);
-        foreach ($function_positions as $pos) {
-            $source = self::injectProfilerByFunctionPosition($source, $pos);
-        }
-        return $source;
-    }
+        $tokens = token_get_all($source);
+        $code = '';
 
-    /**
-     * @param string $source
-     * @param int $pos
-     * @return string
-     */
-    protected static function injectProfilerByFunctionPosition($source, $pos) {
-        $info = self::getFunctionInfo($source, $pos);
+        $function_found = false;
+        $function_name = null;
+        $stack = [];
 
-        if ($info['name']) {
-            $name = '__METHOD__';
-        } else {
-            $name =  '__METHOD__ . \'#' . base_convert($pos, 10, 36) . '\'';
-        }
+        foreach ($tokens as $i => $token) {
+            if (is_string($token)) {
+                $id = null;
+                $text = $token;
+            } else {
+                list($id, $text) = $token;
+            }
+            $code .= $text;
 
-        $offset = $info['body_pos'];
-        $source = substr($source, 0, $offset + 1)
-            . '$SimpleProfilerTimer = new \SimpleProfiler\Timer(\'Profiler.\' . ' . $name . ');'
-            . substr($source, $offset + 1);
-
-        return $source;
-    }
-
-    /**
-     * @param string $source
-     * @param int $pos
-     * @return array
-     */
-    protected static function getFunctionInfo($source, $pos) {
-        $params_pos = strpos($source, '(', $pos);
-        $name = substr($source, $pos + 8, $params_pos - $pos - 8);
-
-        $stack = ['('];
-        $i = $params_pos;
-        while (isset($source[++$i])) {
-
-            $chr = $source[$i];
-            $last = $stack[count($stack) - 1];
-
-            if ($chr === '\'' && $last === '\'' && $source[$i - 1] !== '\\') {
-                array_pop($stack);
+            if ($id === T_FUNCTION) {
+                $function_found = true;
+                $function_name = null;
+                $stack = [];
                 continue;
             }
 
-            if ($chr === '"' && $last === '"' && $source[$i - 1] !== '\\') {
-                array_pop($stack);
-                continue;
-            }
+            if ($function_found) {
+                if ($id === T_STRING && !$stack) {
+                    $function_name = $text;
+                    continue;
+                }
 
-            if ($last === '\'' || $last === '"') {
-                continue;
-            }
-
-            if ($chr === '\'' || $chr === '"') {
-                array_push($stack, $chr);
-                continue;
-            }
-
-            if ($last === '(' && $chr === ')') {
-                array_pop($stack);
-                if (!$stack) {
-                    $i++;
-                    break;
+                if (!isset($id)) {
+                    if ($text === '(') {
+                        $stack[] = '(';
+                        continue;
+                    }
+                    if ($text === ')') {
+                        array_pop($stack);
+                        continue;
+                    }
+                    if ($text === '{' && !$stack) {
+                        $function_found = false;
+                        if ($function_name) {
+                            $name = '__METHOD__';
+                        } else {
+                            $name =  '__METHOD__ . \'_' . base_convert($i, 10, 36) . '\'';
+                        }
+                        $code .= '$SimpleProfilerTimer = new \SimpleProfiler\Timer(\'Profiler.\' . ' . $name . ');';
+                        continue;
+                    }
                 }
             }
 
-            if ($chr === '(') {
-                array_push($stack, $chr);
-            }
         }
-
-        $func_body = strpos($source, '{', $i);
-
-        return [
-            'name' => trim($name),
-            'body_pos' => $func_body,
-        ];
-    }
-
-    /**
-     * @param string $source
-     * @return int[]
-     */
-    protected static function getFunctionPositions($source) {
-        $function_positions = [];
-        $code = '';
-        $tokens = token_get_all($source);
-
-        foreach ($tokens as $token) {
-            if (is_string($token)) {
-                $code .= $token;
-                continue;
-            }
-            list($id, $text) = $token;
-            if ($id === T_FUNCTION) {
-                $function_positions[] = strlen($code);
-            }
-            $code .= $text;
-        }
-
-        if (count($function_positions) > 1) {
-            krsort($function_positions);
-        }
-
-        return $function_positions;
+        return $code;
     }
 }
