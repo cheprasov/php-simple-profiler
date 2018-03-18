@@ -3,16 +3,18 @@
 SimpleProfiler v2.0.0 for PHP >= 5.5
 =========
 
-It helps to add profiler to your php-project easy.
+The SimpleProfiler is a tool for automatic analysis of code.
+Or, you just using simple tools like Timer and Counters.
 
 ##### Features:
-- Easy to implement.
+- Easy to connect to a project if you want of automatic analysis of your code.
 - Has 'counter' and 'timer' tools.
 - Has grouping for compare elements.
 - Support anonymous function.
 - Written on PHP.
 
-### 1. How to add the profiler to you project
+### 1. How to add the profiler to you project for automatic analysis of code
+Note. You can use profiler tools like 'counter' and 'timer' without this step.
 
 All you need is open your 'autoload' function, and use the profiler's function for loading class.
 
@@ -102,7 +104,7 @@ Example of output:
 
 Note. Calculation of `cost` does not accounting nested function, it just uses sum time of elements in a group.
 
-### Usage
+### 3. Usage of Tools
 
 1. Using timers tool
 ```php
