@@ -90,9 +90,6 @@ class Profiler {
             unset($lastElement['items']);
         }
         self::$lastElement = &$lastElement['parent'];
-        if (!$lastElement['parent']) {
-            //$lastElement['duration'] += microtime(true) - $lastElement['timeBeg'];
-        }
     }
 
     public static function clear()
@@ -124,7 +121,7 @@ class Profiler {
     {
         $output = [];
         if (!empty($data['arguments'])) {
-            $output[] = 'arguments: [' . implode(', ', $data['arguments']) . ']';
+            $output[] = 'arguments: [ ' . implode(', ', $data['arguments']) . ' ]';
         }
         if (!empty($data['result'])) {
             $output[] = 'result: ' . $data['result'];
@@ -132,32 +129,40 @@ class Profiler {
         return implode(', ', $output);
     }
 
+    /**
+     * @param array $element
+     * @param int $level
+     * @param int $totalDuration
+     * @return string
+     */
     protected static function formatElement($element, $level = 0, $totalDuration = 0)
     {
         $output = '';
         $hasItems = !empty($element['items']);
 
+        $spaces = str_repeat(' ', 4);
+
         if (!$level) {
             $total = sprintf('%02.6f', $element['duration']);
             $output .= "Profiler, total: {$total} sec \n";
         } else {
-            $output .= str_repeat(' |   ', $level) . PHP_EOL;
-            $output .= str_repeat(' |   ', $level - 1);
-            $output .= ' |--> ' . $element['name'] . PHP_EOL;
+            $output .= str_repeat($spaces, $level) . PHP_EOL;
+            $output .= str_repeat($spaces, $level - 1);
+            $output .= '>  ' . $element['name'] . PHP_EOL;
 
             if (!empty($element['data'])) {
-                //$data = self::formatData($element['data']);
-                //$output .= str_repeat(' |   ', $level - 1);
-               // $output .= " |    {$data} \n";
+                $data = self::formatData($element['data']);
+                $output .= str_repeat($spaces, $level - 1);
+                $output .= "   {$data}\n";
             }
 
-            $output .= str_repeat(' |   ', $level - 1);
+            $output .= str_repeat($spaces, $level - 1);
             $count = $element['count'];
             $avg = sprintf('%02.6f', $element['duration'] / $count);
             $total = sprintf('%02.6f', $element['duration']);
             $cost = sprintf('%02.1f', $element['duration'] / ($totalDuration ?: 1) * 100);
 
-            $output .= "     cost: {$cost} %, count: {$count}, avg: {$avg} sec, total: {$total} sec \n";
+            $output .= "   cost: {$cost} %, count: {$count}, avg: {$avg} sec, total: {$total} sec\n";
         }
         if ($hasItems) {
             foreach ($element['items'] as $el) {
