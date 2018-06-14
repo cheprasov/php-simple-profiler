@@ -8,23 +8,22 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
-namespace SimpleProfiler;
+namespace SimpleProfiler\Unit;
 
-class Timer {
+interface UnitInterface
+{
+    /**
+     * @return string
+     */
+    public function getName(): string;
 
     /**
-     * @var string
+     * @return string|null
      */
-    protected $method;
+    public function getKey();
 
     /**
-     * @param string $method
+     * @return mixed
      */
-    public function __construct($method) {
-        Profiler::startTimer($this->method = $method);
-    }
-
-    public function __destruct() {
-        Profiler::stopTimer($this->method);
-    }
+    public function getData();
 }

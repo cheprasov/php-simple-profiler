@@ -11,22 +11,26 @@
 
 namespace SimpleProfiler\Tests;
 
-$foo = function() {
-    return 'foo';
+$foo = function($f = 'foo') {
+    return $f;
 };
 $foo();
+$foo();
 
-function bar() {
-    return 'bar';
-}
-bar();
+$bar = function() use ($foo) {
+    return $foo('bar');
+};
+$bar();
+$bar();
 
 class TestClass {
 
     /**
      * @return string
      */
-    public static function getSomeData() {//Some comment
+    public static function getSomeData()
+    {
+        //Some comment
         return 'some data';
     }
 
@@ -35,7 +39,8 @@ class TestClass {
      * @param int $max
      * @return int
      */
-    public static function get_random_int ($min = 0, $max = 100) {
+    public static function get_random_int ($min = 0, $max = 100)
+    {
         // Some comment
         return mt_rand($min, $max);
     }
@@ -55,7 +60,8 @@ class TestClass {
      * @param string $_a
      * @return string
      */
-    public static function   __strange__name__  ($_a = 'Alexander') {
+    public static function   __strange__name__  ($_a = 'Alexander')
+    {
         return $_a;
     }
 
@@ -81,7 +87,8 @@ class TestClass {
     /**
      *
      */
-    public static function anonymous() {
+    public static function anonymous()
+    {
         $get42 = function() {
             return 42;
         };
@@ -91,8 +98,20 @@ class TestClass {
     /**
      *
      */
-    public static function sleep() {
+    public static function sleep($t = 100)
+    {
         usleep(100);
+    }
+
+    /**
+     *
+     */
+    public static function test()
+    {
+        $Test1 = new TestClass();
+        $Test1->anonymous();
+        $Test2 = new TestClass();
+        $Test2->anonymous();
     }
 
     /**
