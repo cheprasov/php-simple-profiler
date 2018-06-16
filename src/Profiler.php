@@ -10,13 +10,24 @@
  */
 namespace SimpleProfiler;
 
-use SimpleProfiler\Unit\DetailedFuncUnit;
-use SimpleProfiler\Unit\FuncUnit;
+use SimpleProfiler\Unit\CollectArgumentsInterface;
+use SimpleProfiler\Unit\CollectResultInterface;
+use SimpleProfiler\Unit\DetailedFunctionUnit;
+use SimpleProfiler\Unit\FunctionUnit;
 use SimpleProfiler\Unit\UnitInterface;
 
 class Profiler {
 
     const VERSION = '3.0.0';
+
+    /**
+     * @see http://php.net/manual/en/language.variables.basics.php
+     */
+    const REGEXP_PHP_VAR = '/[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*/';
+
+    protected static $defaultUnitVarName = '$ProfilerUnit';
+
+    protected static $profilerUnitClass = FunctionUnit::class;
 
     /**
      * @var array
@@ -27,6 +38,32 @@ class Profiler {
      * @var &array|null
      */
     protected static $lastElement;
+
+    /**
+     * @param string $defaultUnitVarName
+     * @returns bool
+     */
+    public static function setDefaultUnitVarName(string $defaultUnitVarName): bool
+    {
+        if (!preg_match(self::REGEXP_PHP_VAR, ltrim($defaultUnitVarName, '$'))) {
+            return false;
+        }
+        self::$defaultUnitVarName = $defaultUnitVarName;
+        return true;
+    }
+
+    /**
+     * @param mixed $profilerUnitClass
+     * @returns bool
+     */
+    public static function setProfilerUnitClass(string $profilerUnitClass)
+    {
+        if (!is_subclass_of($profilerUnitClass, UnitInterface::class)) {
+            return false;
+        }
+        self::$profilerUnitClass = $profilerUnitClass;
+        return true;
+    }
 
     /**
      * @return array
@@ -78,18 +115,20 @@ class Profiler {
      */
     public static function closeUnit(UnitInterface $Unit)
     {
+        $microtime = microtime(true);
         $lastElement = &self::getLastElement();
         if (empty($lastElement['name']) || $lastElement['name'] !== $Unit->getName()) {
             // Error
             return;
         }
-        $lastElement['duration'] += microtime(true) - $lastElement['timeBeg'];
+        $lastElement['duration'] += $microtime - $lastElement['timeBeg'];
         $lastElement['data'] = $Unit->getData();
         unset($lastElement['timeBeg']);
         if (empty($lastElement['items'])) {
             unset($lastElement['items']);
         }
         self::$lastElement = &$lastElement['parent'];
+        self::$callsTree['duration'] = $microtime - self::$callsTree['timeBeg'];
     }
 
     public static function clear()
@@ -114,7 +153,6 @@ class Profiler {
         if (empty(self::$callsTree)) {
             return '';
         }
-        self::$callsTree['duration'] += microtime(true) - self::$callsTree['timeBeg'];
         $output = self::formatElement(self::$callsTree);
 
         return $output;
@@ -174,13 +212,11 @@ class Profiler {
      * @param bool $withResult
      * @param string $regExpFilter
      */
-    public static function includeFile(string $filename, bool $withArguments = false, bool $withResult = false, string $regExpFilter = '')
+    public static function includeFile(string $filename, string $regExpFilter = '')
     {
         $file = file_get_contents($filename);
-        $file = self::injectProfilerToCode($file, $withArguments, $withResult, $regExpFilter);
+        $file = self::injectProfilerUnitToCode($file, self::$profilerUnitClass, $regExpFilter);
         $file = trim($file);
-
-        print_r($file);
 
         if (substr($file, 0, 5) === '<?php') {
             $file = substr($file, 5);
@@ -195,15 +231,19 @@ class Profiler {
 
     /**
      * @param string $source
-     * @param bool $withArguments
-     * @param bool $withResult
+     * @param string $unitClassName
      * @param string $regExpFilter
      * @return string
      */
-    protected static function injectProfilerToCode(string $source, bool $withArguments, bool $withResult, string $regExpFilter = '')
+    protected static function injectProfilerUnitToCode(string $source, string $unitClassName, string $regExpFilter = '')
     {
         $tokens = token_get_all($source);
         unset($source);
+
+        $defaultUnitVarName = self::$defaultUnitVarName;
+        $withArguments = is_subclass_of($unitClassName, CollectArgumentsInterface::class);
+        $withResult = is_subclass_of($unitClassName, CollectResultInterface::class);
+        $unitClass = '\\' . ltrim($unitClassName, '\\');
 
         $getNextToken = function () use (&$tokens) {
             static $i = 0;
@@ -214,14 +254,11 @@ class Profiler {
             return $token;
         };
 
-        if ($withArguments || $withResult) {
-            $unitClass = '\\' . DetailedFuncUnit::class;
-        } else {
-            $unitClass = '\\' . FuncUnit::class;
-        }
-        $arguments = $withArguments ? 'func_get_args()' : 'null';
-
         $functionFound = false;
+        $functionName = null;
+        $functionLine = 0;
+        $functionColumn = 0;
+
         $stack = [];
 
         $code = '';
@@ -230,20 +267,23 @@ class Profiler {
             $code .= $text;
 
             if ($id === T_FUNCTION) {
-                $functionName = null;
                 $functionFound = true;
                 $functionLine = $lineNum;
                 $functionColumn = strlen($code) - (strrpos($code, "\n") ?: 0);
+                $functionName = null;
 
                 // try to find function name
                 while (null !== ($token2 = $getNextToken())) {
                     list($id2, $text2, ) = $token2;
                     $code .= $text2;
-                    if ($id2 === T_STRING && preg_match('/^\w+$/', $text2)) {
+                    if ($id2 === T_STRING && preg_match(self::REGEXP_PHP_VAR, $text2)) {
                         $functionName = $text2;
                         break;
                     }
                     if ($text2 === '(') {
+                        if (!$functionName) {
+                            $functionName = '{closure}';
+                        }
                         break;
                     }
                 }
@@ -252,27 +292,35 @@ class Profiler {
                 continue;
             }
 
-            if (($id === T_RETURN || $id === T_THROW) && $withResult) {
-                if (!$regExpFilter || preg_match($regExpFilter, $functionName ?? '{closure}')) {
-                    $code .= ' $ProfilerFuncUnit->result =';
+            if ($withResult && $functionFound && ($id === T_RETURN || $id === T_THROW) && $functionName) {
+                if (!$regExpFilter || preg_match($regExpFilter, $functionName)) {
+                    $code .= " {$defaultUnitVarName}->result =";
                 }
                 continue;
             }
 
             if ($functionFound && !isset($id)) {
-                if ($text === '(') {
-                    $stack[] = '(';
-                    continue;
-                }
-                if ($text === ')') {
-                    array_pop($stack);
-                    continue;
-                }
-                if ($text === '{' && !$stack) {
-                    $functionFound = false;
-                    if (!$regExpFilter || preg_match($regExpFilter, $functionName ?? '{closure}')) {
-                        $code .= "\$ProfilerFuncUnit = {$unitClass}::create(__METHOD__, {$functionLine}, {$functionColumn}, {$arguments});";
+                if ($text === '{') {
+                    if (!$stack) {
+                        if (!$regExpFilter || preg_match($regExpFilter, $functionName)) {
+                            $code .= "{$defaultUnitVarName} = {$unitClass}::create(__METHOD__, {$functionLine}, {$functionColumn});";
+                            if ($withArguments) {
+                                $code .= "{$defaultUnitVarName}->setArguments(func_get_args());";
+                            }
+                        }
                     }
+                    $stack[] = $text;
+                    continue;
+                }
+                if ($text === '}' && $stack[count($stack) - 1] === '{') {
+                    array_pop($stack);
+                    if (!$stack) {
+                        $functionFound = false;
+                    }
+                    continue;
+                }
+                if ($text === ';' && !$stack) {
+                    $functionFound = false;
                     continue;
                 }
             }

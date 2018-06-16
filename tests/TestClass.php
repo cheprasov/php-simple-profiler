@@ -140,3 +140,5 @@ class TestClass {
         return $a;
     }
 }
+
+return true;

@@ -10,12 +10,12 @@
  */
 namespace SimpleProfiler\Unit;
 
-class DetailedFuncUnit extends FuncUnit
+class DetailedFunctionUnit extends FunctionUnit implements CollectArgumentsInterface, CollectResultInterface
 {
     /**
      * @var array
      */
-    protected $args;
+    protected $arguments;
 
     /**
      * @var mixed
@@ -31,10 +31,10 @@ class DetailedFuncUnit extends FuncUnit
      * @param string $methodName
      * @param array $args
      */
-    protected function __construct(string $methodName, array $args = null)
+    protected function __construct(string $methodName)
     {
         if (isset($args)) {
-            $this->args = array_map(['self', 'prepareValue'], $args);
+            $this->arguments = array_map(['DetailedFunctionUnit', 'prepareValue'], $args);
         }
         parent::__construct($methodName);
     }
@@ -44,11 +44,16 @@ class DetailedFuncUnit extends FuncUnit
         return null;
     }
 
+    public function setArguments(array $arguments)
+    {
+        $this->arguments = array_map(['self', 'prepareValue'], $arguments);
+    }
+
     public function getData()
     {
         $data = [];
-        if ($this->args) {
-            $data['arguments'] = $this->args;
+        if ($this->arguments) {
+            $data['arguments'] = $this->arguments;
         }
         if ($this->resultIsDefined) {
             $data['result'] = $this->result;

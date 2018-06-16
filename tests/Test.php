@@ -22,9 +22,8 @@ class Test extends PHPUnit_Framework_TestCase {
         $filename = __DIR__ . '/TestClass.php';
         //$file = trim(file_get_contents());
         //$result = Profiler::injectProfilerToCode($file, true);
-        //Profiler::includeFile($filename, false, false);
-        //Profiler::includeFile($filename, true, true, '/closure/');
-        Profiler::includeFile($filename, true, true);
+        $r = Profiler::setProfilerUnitClass(\SimpleProfiler\Unit\DetailedFunctionUnit::class);
+        Profiler::includeFile($filename);
 
         \SimpleProfiler\Tests\TestClass::anonymous();
         \SimpleProfiler\Tests\TestClass::sleep(300);
@@ -35,6 +34,13 @@ class Test extends PHPUnit_Framework_TestCase {
         }
         \SimpleProfiler\Tests\TestClass::test();
 
+        print_r(Profiler::getLog());
+    }
+
+    public function testInjectProfilerToInterface()
+    {
+        $filename = __DIR__ . '/TestInterface.php';
+        Profiler::includeFile($filename, true, true);
         print_r(Profiler::getLog());
     }
 }

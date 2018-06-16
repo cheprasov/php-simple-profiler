@@ -12,7 +12,7 @@ namespace SimpleProfiler\Unit;
 
 use SimpleProfiler\Profiler;
 
-class FuncUnit implements UnitInterface
+class FunctionUnit implements UnitInterface
 {
     /**
      * @var string
@@ -28,9 +28,9 @@ class FuncUnit implements UnitInterface
         Profiler::addUnit($this);
     }
 
-    public static function create(string $methodName, int $line, int $column, array $args = null): UnitInterface
+    public static function create(string $methodName, int $line, int $column): UnitInterface
     {
-        return new static("{$methodName} {$line}:{$column}", $args);
+        return new static("{$methodName} {$line}:{$column}");
     }
 
     public function __destruct()
@@ -66,10 +66,10 @@ class FuncUnit implements UnitInterface
             return 'Array('. count($value) .')';
         }
         if (is_object($value)) {
-            return 'Object:' . get_class($value);
+            return 'Object:' . get_class($value);// . ',id:' . spl_object_hash($value);
         }
-        if (is_callable($value)) {
-            return 'Closure:' . get_class($value);
+        if ($value instanceof \Closure) {
+            return 'Closure:' . get_class($value);// . ',id:' . spl_object_hash($value);
         }
         if (is_resource($value)) {
             return 'Resource:' . get_resource_type($value);

@@ -16,10 +16,9 @@ interface UnitInterface
      * @param string $methodName
      * @param int $line
      * @param int $column
-     * @param array|null $args
      * @return UnitInterface
      */
-    public static function create(string $methodName, int $line, int $column, array $args = null): UnitInterface;
+    public static function create(string $methodName, int $line, int $column): UnitInterface;
 
     /**
      * @return string
