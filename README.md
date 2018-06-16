@@ -1,25 +1,25 @@
 [![MIT license](http://img.shields.io/badge/license-MIT-brightgreen.svg)](http://opensource.org/licenses/MIT)
 
-SimpleProfiler v2.0.0 for PHP >= 5.5
+SimpleProfiler v3.0.0 for PHP >= 7.0
 =========
 
 The SimpleProfiler is a tool for automatic analysis of code.
-Or, you just using simple tools like Timer and Counters.
+Or, you just using simple tools like Stopwatch and Counter.
 
 ##### Features:
-- Easy to connect to a project if you want of automatic analysis of your code.
-- Has 'counter' and 'timer' tools.
-- Has grouping for compare elements.
+- Easy to connect to a project if you want of analysis of your code.
+- Has 'Stopwatch' and 'Counter' tools.
 - Support anonymous function.
-- Written on PHP.
+- Support collecting arguments and result of function.
+- Written on PHP, you do not need install any extensions.
 
 ### 1. How to add the profiler to you project for automatic analysis of code
-Note. You can use profiler tools like 'counter' and 'timer' without this step.
+Note. You can use profiler tools like 'Stopwatch' and 'Counter' without this step.
 
 All you need is open your 'autoload' function, and use the profiler's function for loading class.
 
 ```php
-\SimpleProfiler\Profiler::loadFile(string $classPath, bool $inject_profiler = true) : void
+\SimpleProfiler\Profiler::includeFile(string $classPath) : void
 ```
 
 Example:
@@ -39,7 +39,7 @@ spl_autoload_register(
             //include $classPath;
 
             // Use Profiler function for load a class
-            \SimpleProfiler\Profiler::loadFile($classPath);
+            \SimpleProfiler\Profiler::includeFile($classPath);
         }
     },
     false,
@@ -51,60 +51,99 @@ spl_autoload_register(
 
 The Profiler has 2 methods that returns semi-raw collected data, that you can use or modify as you want.
 
-`\SimpleProfiler\Profiler::getTimerStat() : array`
+`\SimpleProfiler\Profiler::getRawData) : array|null`
 
-`\SimpleProfiler\Profiler::getCounterStat() : array`
+`\SimpleProfiler\Profiler::getLog() : string`
 
-You can use function `\SimpleProfiler\Profiler::getLog` for getting already formatted log data.
+You can use function `\SimpleProfiler\Profiler::getLog()` for getting already formatted log data.
 
 Example of output:
 ```
-# Group [ default ]
+Profiler, total: 1.001041 sec
 
-1) ProcessTime
-   count: 1, avg_time: 0.003965 sec, full_time: 0.003965 sec
-   cost: [----------------------------------------------------------------------------------------------------] 100 %
+> SimpleProfiler\Tests\{closure} 14:16
+  | data: {"result":"foo"}
+  | cost: 0.0 %, count: 1, avg: 0.000008 sec, total: 0.000008 sec
 
+> SimpleProfiler\Tests\{closure} 14:16
+  | data: {"result":"foo"}
+  | cost: 0.0 %, count: 1, avg: 0.000002 sec, total: 0.000002 sec
 
-# Group [ Profiler ]
+> SimpleProfiler\Tests\{closure} 20:16
+  | data: {"result":"bar"}
+  | cost: 0.0 %, count: 1, avg: 0.000006 sec, total: 0.000006 sec
 
-1) CliArgs\CliArgs::__construct
-   count: 1, avg_time: 0.000027 sec, full_time: 0.000027 sec
-   cost: [--------------] 14 %
+  > SimpleProfiler\Tests\{closure} 14:16
+    | data: {"arguments":["bar"],"result":"bar"}
+    | cost: 20.0 %, count: 1, avg: 0.000001 sec, total: 0.000001 sec
 
-2) CliArgs\CliArgs::setConfig
-   count: 1, avg_time: 0.000018 sec, full_time: 0.000018 sec
-   cost: [---------] 9.3 %
+> SimpleProfiler\Tests\{closure} 20:16
+  | data: {"result":"bar"}
+  | cost: 0.0 %, count: 1, avg: 0.000005 sec, total: 0.000005 sec
 
-3) CliArgs\CliArgs::getArg
-   count: 6, avg_time: 0.000014 sec, full_time: 0.000085 sec
-   cost: [--------------------------------------------] 44.2 %
+  > SimpleProfiler\Tests\{closure} 14:16
+    | data: {"arguments":["bar"],"result":"bar"}
+    | cost: 19.0 %, count: 1, avg: 0.000001 sec, total: 0.000001 sec
 
-4) CliArgs\CliArgs::getArgFromConfig
-   count: 6, avg_time: 0.000001 sec, full_time: 0.000006 sec
-   cost: [---] 3 %
+> SimpleProfiler\Tests\TestClass::anonymous 90:27
+  | cost: 0.0 %, count: 1, avg: 0.000006 sec, total: 0.000006 sec
 
-5) CliArgs\CliArgs::getArguments
-   count: 18, avg_time: 0.000001 sec, full_time: 0.000022 sec
-   cost: [-----------] 11.3 %
+  > SimpleProfiler\Tests\{closure} 92:26
+    | data: {"result":42}
+    | cost: 20.0 %, count: 1, avg: 0.000001 sec, total: 0.000001 sec
 
-6) CliArgs\CliArgs::parseArray
-   count: 1, avg_time: 0.000005 sec, full_time: 0.000005 sec
-   cost: [---] 2.6 %
+> SimpleProfiler\Tests\TestClass::sleep 101:27
+  | data: {"arguments":[300]}
+  | cost: 0.0 %, count: 1, avg: 0.000277 sec, total: 0.000277 sec
 
-7) CliArgs\CliArgs::isFlagExists
-   count: 12, avg_time: 0.000003 sec, full_time: 0.000030 sec
-   cost: [----------------] 15.6 %
+> SimpleProfiler\Tests\TestClass::get_random_int 42:27
+  | data: {"arguments":[100,300],"result":271}
+  | cost: 0.0 %, count: 1, avg: 0.000013 sec, total: 0.000013 sec
 
+> SimpleProfiler\Tests\TestClass::exception 135:27
+  | data: {"arguments":[true],"result":"Object:Exception"}
+  | cost: 0.0 %, count: 1, avg: 0.000013 sec, total: 0.000013 sec
 
-# COUNTERS:
- > Counter_of_some_event : 2
- > Some_event : 3
+> SimpleProfiler\Tests\TestClass::test 109:27
+  | cost: 100.0 %, count: 1, avg: 1.000647 sec, total: 1.000647 sec
+
+  > SimpleProfiler\Tests\TestClass::anonymous 90:27
+    | cost: 0.0 %, count: 1, avg: 0.000006 sec, total: 0.000006 sec
+
+    > SimpleProfiler\Tests\{closure} 92:26
+      | data: {"result":42}
+      | cost: 36.0 %, count: 1, avg: 0.000002 sec, total: 0.000002 sec
+
+  > SimpleProfiler\Tests\TestClass::withParams 121:27
+    | data: {"arguments":["Object:Closure"],"result":1529169307}
+    | cost: 100.0 %, count: 1, avg: 1.000630 sec, total: 1.000630 sec
+
+    > SimpleProfiler\Tests\{closure} 114:36
+      | data: {"result":1529169307}
+      | cost: 100.0 %, count: 1, avg: 1.000591 sec, total: 1.000591 sec
 ```
 
-Note. Calculation of `cost` does not accounting nested function, it just uses sum time of elements in a group.
+Note. Calculation of `cost` accounts nested function.
 
-### 3. Usage of Tools
+Lets see what we have in output
+```
+...
+    > SimpleProfiler\Tests\TestClass::get_random_int 42:27
+      | data: {"arguments":[100,300],"result":271}
+      | cost: 0.0 %, count: 1, avg: 0.000013 sec, total: 0.000013 sec
+...
+```
+- `SimpleProfiler\Tests\TestClass::get_random_int 42:27` - <function name> <line:column in code>
+- `data: {"arguments":[100,300],"result":271}` - data of the function: arguments and result
+- `cost: 0.0 %, count: 1, avg: 0.000013 sec, total: 0.000013 sec`
+- - `cost: 0.0 %` - How much time it took out of the parent function total time.
+- - `count: 1` - Count of call the function. Note, functions with data calculate without grouping.
+- - `avg: 0.000013 sec` - Average time for 1 call the function.
+- - `total: 0.000013 sec` - Total time for all calls the function.
+
+### 3. Usage of Profiler tool
+
+
 
 1. Using timers tool
 ```php
