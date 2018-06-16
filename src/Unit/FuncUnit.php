@@ -22,10 +22,15 @@ class FuncUnit implements UnitInterface
     /**
      * @param string $methodName
      */
-    public function __construct(string $methodName)
+    protected function __construct(string $methodName)
     {
         $this->methodName = $methodName;
         Profiler::addUnit($this);
+    }
+
+    public static function create(string $methodName, int $line, int $column, array $args = null): UnitInterface
+    {
+        return new static("{$methodName} {$line}:{$column}", $args);
     }
 
     public function __destruct()
@@ -70,22 +75,5 @@ class FuncUnit implements UnitInterface
             return 'Resource:' . get_resource_type($value);
         }
         return 'Undefined';
-    }
-
-    /**
-     * @param mixed $value
-     * @return void
-     */
-    public function setResult($value)
-    {
-        $this->result = self::prepareValue($value);
-        $this->resultIsDefined = true;
-    }
-
-    public function __set($name, $value)
-    {
-        if ($name === 'result') {
-            return $this->setResult($value);
-        }
     }
 }

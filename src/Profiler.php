@@ -21,7 +21,7 @@ class Profiler {
     /**
      * @var array
      */
-    public static $callsTree;
+    protected static $callsTree;
 
     /**
      * @var &array|null
@@ -99,17 +99,20 @@ class Profiler {
     }
 
     /**
-     * @return array
+     * @return array|null
      */
     public static function getRawData()
     {
         return self::$callsTree;
     }
 
+    /**
+     * @return string
+     */
     public static function getLog(): string
     {
         if (empty(self::$callsTree)) {
-            return '<Empty profiler>';
+            return '';
         }
         self::$callsTree['duration'] += microtime(true) - self::$callsTree['timeBeg'];
         $output = self::formatElement(self::$callsTree);
@@ -119,14 +122,7 @@ class Profiler {
 
     protected static function formatData($data)
     {
-        $output = [];
-        if (!empty($data['arguments'])) {
-            $output[] = 'arguments: [ ' . implode(', ', $data['arguments']) . ' ]';
-        }
-        if (!empty($data['result'])) {
-            $output[] = 'result: ' . $data['result'];
-        }
-        return implode(', ', $output);
+        return json_encode($data);
     }
 
     /**
@@ -140,7 +136,7 @@ class Profiler {
         $output = '';
         $hasItems = !empty($element['items']);
 
-        $spaces = str_repeat(' ', 4);
+        $spaces = str_repeat(' ', 2);
 
         if (!$level) {
             $total = sprintf('%02.6f', $element['duration']);
@@ -148,12 +144,12 @@ class Profiler {
         } else {
             $output .= str_repeat($spaces, $level) . PHP_EOL;
             $output .= str_repeat($spaces, $level - 1);
-            $output .= '>  ' . $element['name'] . PHP_EOL;
+            $output .= '> ' . $element['name'] . PHP_EOL;
 
             if (!empty($element['data'])) {
                 $data = self::formatData($element['data']);
                 $output .= str_repeat($spaces, $level - 1);
-                $output .= "   {$data}\n";
+                $output .= "  | data: {$data}\n";
             }
 
             $output .= str_repeat($spaces, $level - 1);
@@ -162,7 +158,7 @@ class Profiler {
             $total = sprintf('%02.6f', $element['duration']);
             $cost = sprintf('%02.1f', $element['duration'] / ($totalDuration ?: 1) * 100);
 
-            $output .= "   cost: {$cost} %, count: {$count}, avg: {$avg} sec, total: {$total} sec\n";
+            $output .= "  | cost: {$cost} %, count: {$count}, avg: {$avg} sec, total: {$total} sec\n";
         }
         if ($hasItems) {
             foreach ($element['items'] as $el) {
@@ -176,11 +172,15 @@ class Profiler {
      * @param string $filename
      * @param bool $withArguments
      * @param bool $withResult
+     * @param string $regExpFilter
      */
-    public static function profilerFile(string $filename, bool $withArguments = false, bool $withResult = false)
+    public static function includeFile(string $filename, bool $withArguments = false, bool $withResult = false, string $regExpFilter = '')
     {
-        $file = trim(file_get_contents($filename));
-        $file = self::injectProfilerToCode($file, $withArguments, $withResult);
+        $file = file_get_contents($filename);
+        $file = self::injectProfilerToCode($file, $withArguments, $withResult, $regExpFilter);
+        $file = trim($file);
+
+        print_r($file);
 
         if (substr($file, 0, 5) === '<?php') {
             $file = substr($file, 5);
@@ -195,73 +195,85 @@ class Profiler {
 
     /**
      * @param string $source
+     * @param bool $withArguments
      * @param bool $withResult
+     * @param string $regExpFilter
      * @return string
      */
-    public static function injectProfilerToCode(string $source, bool $withArguments, bool $withResult) {
+    protected static function injectProfilerToCode(string $source, bool $withArguments, bool $withResult, string $regExpFilter = '')
+    {
         $tokens = token_get_all($source);
-        $code = '';
+        unset($source);
+
+        $getNextToken = function () use (&$tokens) {
+            static $i = 0;
+            $token = $tokens[$i++] ?? null;
+            if (is_string($token)) {
+                return [null, $token, 0];
+            }
+            return $token;
+        };
 
         if ($withArguments || $withResult) {
             $unitClass = '\\' . DetailedFuncUnit::class;
         } else {
             $unitClass = '\\' . FuncUnit::class;
         }
-
-        $withArguments = $withArguments ? 'func_get_args()' : 'null';
+        $arguments = $withArguments ? 'func_get_args()' : 'null';
 
         $functionFound = false;
-        $functionName = null;
-        $returnPosition = 0;
-        $functionColumn = 0;
         $stack = [];
 
-        foreach ($tokens as $i => $token) {
-            if (is_string($token)) {
-                $id = null;
-                $text = $token;
-            } else {
-                list($id, $text) = $token;
-            }
+        $code = '';
+        while (null !== ($token = $getNextToken())) {
+            list($id, $text, $lineNum) = $token;
             $code .= $text;
 
-            if (false !== ($pos = strpos($text, "\n"))) {
-                $returnPosition = strlen($code) + $pos - strlen($text) + 8; // strlen('function')
-            }
-
             if ($id === T_FUNCTION) {
+                $functionName = null;
                 $functionFound = true;
-                $functionColumn = strlen($code) - $returnPosition;
+                $functionLine = $lineNum;
+                $functionColumn = strlen($code) - (strrpos($code, "\n") ?: 0);
+
+                // try to find function name
+                while (null !== ($token2 = $getNextToken())) {
+                    list($id2, $text2, ) = $token2;
+                    $code .= $text2;
+                    if ($id2 === T_STRING && preg_match('/^\w+$/', $text2)) {
+                        $functionName = $text2;
+                        break;
+                    }
+                    if ($text2 === '(') {
+                        break;
+                    }
+                }
+
                 $stack = [];
                 continue;
             }
 
-            if ($id === T_RETURN && $withResult) {
-                $code .= ' $ProfilerFuncUnit->result =';
+            if (($id === T_RETURN || $id === T_THROW) && $withResult) {
+                if (!$regExpFilter || preg_match($regExpFilter, $functionName ?? '{closure}')) {
+                    $code .= ' $ProfilerFuncUnit->result =';
+                }
                 continue;
             }
 
-            if ($functionFound) {
-                if ($id === T_STRING && !$stack) {
-                    $functionName = $text;
+            if ($functionFound && !isset($id)) {
+                if ($text === '(') {
+                    $stack[] = '(';
                     continue;
                 }
-
-                if (!isset($id)) {
-                    if ($text === '(') {
-                        $stack[] = '(';
-                        continue;
+                if ($text === ')') {
+                    array_pop($stack);
+                    continue;
+                }
+                if ($text === '{' && !$stack) {
+                    $functionFound = false;
+                    if (!$regExpFilter || preg_match($regExpFilter, $functionName ?? '{closure}')) {
+                        $code .= "\$ProfilerFuncUnit = {$unitClass}::create(__METHOD__, {$functionLine}, {$functionColumn}, {$arguments});";
                     }
-                    if ($text === ')') {
-                        array_pop($stack);
-                        continue;
-                    }
-                    if ($text === '{' && !$stack) {
-                        $functionFound = false;
-                        $name =  "__METHOD__ . ' ' . __LINE__ . ':{$functionColumn}'";
-                        $code .= "\$ProfilerFuncUnit = new {$unitClass}({$name}, {$withArguments});";
-                        continue;
-                    }
+                    continue;
                 }
             }
 

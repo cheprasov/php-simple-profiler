@@ -10,8 +10,6 @@
  */
 namespace SimpleProfiler\Unit;
 
-use SimpleProfiler\Profiler;
-
 class DetailedFuncUnit extends FuncUnit
 {
     /**
@@ -33,7 +31,7 @@ class DetailedFuncUnit extends FuncUnit
      * @param string $methodName
      * @param array $args
      */
-    public function __construct(string $methodName, array $args = null)
+    protected function __construct(string $methodName, array $args = null)
     {
         if (isset($args)) {
             $this->args = array_map(['self', 'prepareValue'], $args);
@@ -56,5 +54,22 @@ class DetailedFuncUnit extends FuncUnit
             $data['result'] = $this->result;
         }
         return $data ?: null;
+    }
+
+    /**
+     * @param mixed $value
+     * @return void
+     */
+    public function setResult($value)
+    {
+        $this->result = self::prepareValue($value);
+        $this->resultIsDefined = true;
+    }
+
+    public function __set($name, $value)
+    {
+        if ($name === 'result') {
+            return $this->setResult($value);
+        }
     }
 }

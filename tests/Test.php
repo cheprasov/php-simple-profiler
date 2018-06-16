@@ -22,17 +22,19 @@ class Test extends PHPUnit_Framework_TestCase {
         $filename = __DIR__ . '/TestClass.php';
         //$file = trim(file_get_contents());
         //$result = Profiler::injectProfilerToCode($file, true);
-        //Profiler::profilerFile($filename, false, true);
-        //Profiler::profilerFile($filename, false, false);
-        Profiler::profilerFile($filename, true, true);
+        //Profiler::includeFile($filename, false, false);
+        //Profiler::includeFile($filename, true, true, '/closure/');
+        Profiler::includeFile($filename, true, true);
 
         \SimpleProfiler\Tests\TestClass::anonymous();
         \SimpleProfiler\Tests\TestClass::sleep(300);
         \SimpleProfiler\Tests\TestClass::get_random_int(100, 300);
+        try {
+            \SimpleProfiler\Tests\TestClass::exception(true);
+        } catch (\Exception $E) {
+        }
         \SimpleProfiler\Tests\TestClass::test();
 
-
-        print_r(Profiler::$callsTree);
         print_r(Profiler::getLog());
     }
 }

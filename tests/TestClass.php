@@ -106,20 +106,20 @@ class TestClass {
     /**
      *
      */
-    public static function test()
+    public static function /*oops*/ test /*oops*/ (   )
     {
         $Test1 = new TestClass();
         $Test1->anonymous();
         $Test2 = new TestClass();
-        $Test2->anonymous();
+        $Test2->withParams(function() {sleep(1); return time();} );
     }
 
     /**
      * @param null $function
      * @return null
      */
-    public static function withParams($function = null) {
-        return $function;
+    public static function withParams(\Closure $function = null) {
+        return $function();
     }
 
     /**
@@ -129,6 +129,14 @@ class TestClass {
      * @return string
      */
     public static function withParams2($a = 'function', $b = '){', $c = '{}') {
+        return $a;
+    }
+
+    public static function exception(bool $a, $message = 'test')
+    {
+        if ($a) {
+            throw new \Exception($message);
+        }
         return $a;
     }
 }
