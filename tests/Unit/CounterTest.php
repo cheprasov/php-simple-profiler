@@ -9,9 +9,11 @@
  * file that was distributed with this source code.
  */
 
+namespace SimpleProfiler\Tests\Unit;
+
 use SimpleProfiler\Counter;
 
-class CounterTest extends PHPUnit_Framework_TestCase
+class CounterTest extends \PHPUnit_Framework_TestCase
 {
     public function setUp()
     {

@@ -26,7 +26,7 @@ class Counter
      * @param string $name
      * @param int $count
      */
-    public static function increment($name, int $count = 1): int
+    public static function increment(string $name, int $count = 1): int
     {
         if (isset(self::$counter[$name])) {
             self::$counter[$name] += $count;
@@ -40,7 +40,7 @@ class Counter
      * @param string|null $name
      * @param int $count
      */
-    public static function decrement($name, int $count = 1): int
+    public static function decrement(string $name, int $count = 1): int
     {
         return self::increment($name, -$count);
     }

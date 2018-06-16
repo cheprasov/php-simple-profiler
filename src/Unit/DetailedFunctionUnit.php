@@ -28,27 +28,24 @@ class DetailedFunctionUnit extends FunctionUnit implements CollectArgumentsInter
     protected $resultIsDefined = false;
 
     /**
-     * @param string $methodName
-     * @param array $args
+     * @return null
      */
-    protected function __construct(string $methodName)
-    {
-        if (isset($args)) {
-            $this->arguments = array_map(['DetailedFunctionUnit', 'prepareValue'], $args);
-        }
-        parent::__construct($methodName);
-    }
-
     public function getKey()
     {
         return null;
     }
 
+    /**
+     * @inheritdoc
+     */
     public function setArguments(array $arguments)
     {
         $this->arguments = array_map(['self', 'prepareValue'], $arguments);
     }
 
+    /**
+     * @return array|null
+     */
     public function getData()
     {
         $data = [];
@@ -71,10 +68,14 @@ class DetailedFunctionUnit extends FunctionUnit implements CollectArgumentsInter
         $this->resultIsDefined = true;
     }
 
+    /**
+     * @param string $name
+     * @param mixed $value
+     */
     public function __set($name, $value)
     {
         if ($name === 'result') {
-            return $this->setResult($value);
+            $this->setResult($value);
         }
     }
 }

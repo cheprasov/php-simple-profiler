@@ -25,7 +25,7 @@ class Profiler {
      */
     const REGEXP_PHP_VAR = '/^[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*$/';
 
-    protected static $defaultUnitVarName = '$ProfilerUnit';
+    protected static $profilerUnitVarName = '$ProfilerUnit';
 
     protected static $profilerUnitClass = FunctionUnit::class;
 
@@ -40,15 +40,18 @@ class Profiler {
     protected static $lastElement;
 
     /**
-     * @param string $defaultUnitVarName
+     * @param string $profilerUnitVarName
      * @returns bool
      */
-    public static function setDefaultUnitVarName(string $defaultUnitVarName): bool
+    public static function setProfilerUnitVarName(string $profilerUnitVarName): bool
     {
-        if (!preg_match(self::REGEXP_PHP_VAR, ltrim($defaultUnitVarName, '$'))) {
+        if (!$profilerUnitVarName || $profilerUnitVarName[0] !== '$') {
             return false;
         }
-        self::$defaultUnitVarName = $defaultUnitVarName;
+        if (!preg_match(self::REGEXP_PHP_VAR, substr($profilerUnitVarName, 1))) {
+            return false;
+        }
+        self::$profilerUnitVarName = $profilerUnitVarName;
         return true;
     }
 
@@ -68,12 +71,11 @@ class Profiler {
     /**
      * @return array
      */
-    protected function &getLastElement()
+    protected static function &getLastElement()
     {
         if (!self::$callsTree) {
             self::$callsTree = [
                 'parent' => null,
-                'data' => null,
                 'timeBeg' => microtime(true),
                 'duration' => 0,
                 'items' => [],
@@ -102,7 +104,6 @@ class Profiler {
                 'name' => $Unit->getName(),
                 'count' => 1,
                 'duration' => 0,
-                'data' => null,
                 'items' => [],
             ];
         }
@@ -158,9 +159,13 @@ class Profiler {
         return $output;
     }
 
+    /**
+     * @param mixed $data
+     * @return string
+     */
     protected static function formatData($data)
     {
-        return json_encode($data);
+        return json_encode($data, JSON_UNESCAPED_UNICODE);
     }
 
     /**
@@ -169,7 +174,7 @@ class Profiler {
      * @param int $totalDuration
      * @return string
      */
-    protected static function formatElement($element, $level = 0, $totalDuration = 0)
+    protected static function formatElement($element, $level = 0, $totalDuration = 0, &$num = 0)
     {
         $output = '';
         $hasItems = !empty($element['items']);
@@ -180,14 +185,17 @@ class Profiler {
             $total = sprintf('%02.6f', $element['duration']);
             $output .= "Profiler, total: {$total} sec \n";
         } else {
+            $num++;
+            $sp = str_repeat(' ', strlen($num));
+
             $output .= str_repeat($spaces, $level) . PHP_EOL;
             $output .= str_repeat($spaces, $level - 1);
-            $output .= '> ' . $element['name'] . PHP_EOL;
+            $output .=  $num . ' | ' . $element['name'] . PHP_EOL;
 
             if (!empty($element['data'])) {
                 $data = self::formatData($element['data']);
                 $output .= str_repeat($spaces, $level - 1);
-                $output .= "  | data: {$data}\n";
+                $output .= "{$sp} | data: {$data}\n";
             }
 
             $output .= str_repeat($spaces, $level - 1);
@@ -196,11 +204,11 @@ class Profiler {
             $total = sprintf('%02.6f', $element['duration']);
             $cost = sprintf('%02.1f', $element['duration'] / ($totalDuration ?: 1) * 100);
 
-            $output .= "  | cost: {$cost} %, count: {$count}, avg: {$avg} sec, total: {$total} sec\n";
+            $output .= "{$sp} | cost: {$cost} %, count: {$count}, avg: {$avg} sec, total: {$total} sec\n";
         }
         if ($hasItems) {
             foreach ($element['items'] as $el) {
-                $output .= self::formatElement($el, $level + 1, $element['duration']);
+                $output .= self::formatElement($el, $level + 1, $element['duration'], $num);
             }
         }
         return $output;
@@ -210,9 +218,9 @@ class Profiler {
      * @param string $filename
      * @param bool $withArguments
      * @param bool $withResult
-     * @param string $regExpFilter
+     * @param string|null $regExpFilter
      */
-    public static function includeFile(string $filename, string $regExpFilter = '')
+    public static function includeFile(string $filename, string $regExpFilter = null)
     {
         $file = file_get_contents($filename);
         $file = self::injectProfilerUnitToCode($file, self::$profilerUnitClass, $regExpFilter);
@@ -235,12 +243,12 @@ class Profiler {
      * @param string $regExpFilter
      * @return string
      */
-    protected static function injectProfilerUnitToCode(string $source, string $unitClassName, string $regExpFilter = '')
+    protected static function injectProfilerUnitToCode(string $source, string $unitClassName, string $regExpFilter = null)
     {
         $tokens = token_get_all($source);
         unset($source);
 
-        $defaultUnitVarName = self::$defaultUnitVarName;
+        $unitVarName = self::$profilerUnitVarName;
         $withArguments = is_subclass_of($unitClassName, CollectArgumentsInterface::class);
         $withResult = is_subclass_of($unitClassName, CollectResultInterface::class);
         $unitClass = '\\' . ltrim($unitClassName, '\\');
@@ -294,7 +302,7 @@ class Profiler {
 
             if ($withResult && $functionFound && ($id === T_RETURN || $id === T_THROW) && $functionName) {
                 if (!$regExpFilter || preg_match($regExpFilter, $functionName)) {
-                    $code .= " {$defaultUnitVarName}->result =";
+                    $code .= " {$unitVarName}->result =";
                 }
                 continue;
             }
@@ -303,9 +311,9 @@ class Profiler {
                 if ($text === '{') {
                     if (!$stack) {
                         if (!$regExpFilter || preg_match($regExpFilter, $functionName)) {
-                            $code .= "{$defaultUnitVarName} = {$unitClass}::create(__METHOD__, {$functionLine}, {$functionColumn});";
+                            $code .= "{$unitVarName} = {$unitClass}::create(__METHOD__, {$functionLine}, {$functionColumn});";
                             if ($withArguments) {
-                                $code .= "{$defaultUnitVarName}->setArguments(func_get_args());";
+                                $code .= "{$unitVarName}->setArguments(func_get_args());";
                             }
                         }
                     }

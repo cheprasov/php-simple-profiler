@@ -31,7 +31,7 @@ interface UnitInterface
     public function getKey();
 
     /**
-     * @return mixed
+     * @return mixed|null
      */
     public function getData();
 }

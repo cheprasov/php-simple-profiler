@@ -8,9 +8,11 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
+namespace SimpleProfiler\Tests\Unit;
+
 use SimpleProfiler\Stopwatch;
 
-class StopwatchTest extends PHPUnit_Framework_TestCase
+class StopwatchTest extends \PHPUnit_Framework_TestCase
 {
     const MICRO = 1000000;
 

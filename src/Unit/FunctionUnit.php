@@ -25,12 +25,16 @@ class FunctionUnit implements UnitInterface
     protected function __construct(string $methodName)
     {
         $this->methodName = $methodName;
-        Profiler::addUnit($this);
     }
 
+    /**
+     * @inheritdoc
+     */
     public static function create(string $methodName, int $line, int $column): UnitInterface
     {
-        return new static("{$methodName} {$line}:{$column}");
+        $Unit = new static("{$methodName} {$line}:{$column}");
+        Profiler::addUnit($Unit);
+        return $Unit;
     }
 
     public function __destruct()
@@ -38,16 +42,25 @@ class FunctionUnit implements UnitInterface
         Profiler::closeUnit($this);
     }
 
+    /**
+     * @inheritdoc
+     */
     public function getName(): string
     {
         return $this->methodName;
     }
 
+    /**
+     * @inheritdoc
+     */
     public function getKey()
     {
         return $this->methodName;
     }
 
+    /**
+     * @return null
+     */
     public function getData()
     {
         return null;
