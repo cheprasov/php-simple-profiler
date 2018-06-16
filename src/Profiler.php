@@ -23,7 +23,7 @@ class Profiler {
     /**
      * @see http://php.net/manual/en/language.variables.basics.php
      */
-    const REGEXP_PHP_VAR = '/[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*/';
+    const REGEXP_PHP_VAR = '/^[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*$/';
 
     protected static $defaultUnitVarName = '$ProfilerUnit';
 

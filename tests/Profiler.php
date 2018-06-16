@@ -11,7 +11,7 @@
 
 use SimpleProfiler\Profiler;
 
-class Test extends PHPUnit_Framework_TestCase {
+class ProfilerTest extends PHPUnit_Framework_TestCase {
 
     public function setUp() {
         //Profiler::clear();
