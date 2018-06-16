@@ -7,10 +7,10 @@ The SimpleProfiler is a tool for automatic analysis of code.
 Or, you just using simple tools like Stopwatch and Counter.
 
 ##### Features:
-- Easy to connect to a project if you want of analysis of your code.
-- Has 'Stopwatch' and 'Counter' tools.
+- Easy to connect with a project if you want of analysis of your code.
+- It has 'Stopwatch' and 'Counter' tools.
 - Support anonymous function.
-- Support collecting arguments and result of function.
+- Support collecting arguments, result and exceptions of functions.
 - Written on PHP, you do not need install any extensions.
 
 ### 1. How to add the profiler to you project for automatic analysis of code
@@ -143,16 +143,14 @@ Lets see what we have in output
 
 ### 3. Usage of Profiler tool
 
+1. Add profiler to file.
 
-
-1. Using timers tool
-```php
-\SimpleProfiler\Profiler::startTimer('someName');
-
-// some code
-
-\SimpleProfiler\Profiler::stopTimer('someName');
 ```
+Profiler::includeFile(string $classPath, string regExpFilter = null) : void
+```
+Arguments:
+- `string` **$classPath** - path to file of a class
+- `string|null` **regExpFilter** - RegExp for adding profiler by function name. Use `/^\{closure\}$/` for profiling only anonymous functions.
 
 For grouping times use dot `.` as separator for group and name.
 Example of grouping calculation please see above.
