@@ -8,155 +8,320 @@
  * For the full copyright and license information, please view the LICENSE
  * file that was distributed with this source code.
  */
+namespace SimpleProfiler\Tests\Unit;
 
 use SimpleProfiler\Profiler;
+use SimpleProfiler\Unit\DetailedFunctionUnit;
+use SimpleProfiler\Unit\FunctionUnit;
+use \ExtraMocks\Mocks;
 
-class ProfilerTest extends PHPUnit_Framework_TestCase {
-
-    public function setUp() {
+class ProfilerTest extends \PHPUnit_Framework_TestCase
+{
+    public function setUp()
+    {
         Profiler::clear();
+        Profiler::setProfilerUnitClass(\SimpleProfiler\Unit\FunctionUnit::class);
+        Profiler::setProfilerUnitVarName('$ProfilerUnit');
     }
 
     /**
-     * @param string $name
-     * @param int $count
-     * @param float $full_time
-     * @param float $average_time
-     * @param array $actual
+     * @see \SimpleProfiler\Profiler::addUnit
+     * @see \SimpleProfiler\Profiler::closeUnit
+     * @see \SimpleProfiler\Profiler::getLastElement
+     * @runInSeparateProcess
      */
-    protected function checkTimer($name, $count, $full_time, $average_time, $actual) {
-        $this->assertSame($name, $actual['name']);
-        $this->assertSame($count, $actual['count']);
-        $this->assertSame($full_time, substr($actual['full_time'], 0, strlen($full_time)));
-        $this->assertSame($average_time, substr($actual['average_time'], 0, strlen($average_time)));
+    public function testScenario1()
+    {
+        Mocks::mockGlobalFunction(
+            '\SimpleProfiler\microtime',
+            function () {
+                static $time = 0;
+                return ++$time;
+            }
+        );
+
+        Profiler::clear();
+        $this->assertSame(null, Profiler::getRawData());
+
+        $Unit = FunctionUnit::create('TestUnit', 10, 42);
+
+        $expect = [
+            'parent' => null,
+            'timeBeg' => 1,
+            'duration' => 0,
+            'items' => [
+                'TestUnit 10:42' => [
+                    'parent' => null,
+                    'name' => 'TestUnit 10:42',
+                    'count' => 1,
+                    'duration' => 0,
+                    'items' => [],
+                    'timeBeg' => 2,
+                ],
+            ],
+        ];
+        $expect['items']['TestUnit 10:42']['parent'] = &$expect;
+        $this->assertSame(print_r($expect, true), print_r(Profiler::getRawData(), true));
+
+        $Unit2 = FunctionUnit::create('TestUnit2', 12, 52);
+
+        $expect['items']['TestUnit 10:42']['items']['TestUnit2 12:52'] = [
+            'parent' => &$expect['items']['TestUnit 10:42'],
+            'name' => 'TestUnit2 12:52',
+            'count' => 1,
+            'duration' => 0,
+            'items' => [],
+            'timeBeg' => 3,
+        ];
+
+        $this->assertSame(print_r($expect, true), print_r(Profiler::getRawData(), true));
+        Profiler::closeUnit($Unit2);
+
+        $expect['duration'] = 3;
+        $expect['items']['TestUnit 10:42']['items']['TestUnit2 12:52'] = [
+            'parent' => &$expect['items']['TestUnit 10:42'],
+            'name' => 'TestUnit2 12:52',
+            'count' => 1,
+            'duration' => 1,
+            'data' => null,
+        ];
+
+        $this->assertSame(print_r($expect, true), print_r(Profiler::getRawData(), true));
+
+        Profiler::closeUnit($Unit);
+        $expect['duration'] = 4;
+        $expect['items']['TestUnit 10:42']['duration'] = 3;
+        $expect['items']['TestUnit 10:42']['data'] = null;
+        unset($expect['items']['TestUnit 10:42']['timeBeg']);
+
+        $this->assertSame(print_r($expect, true), print_r(Profiler::getRawData(), true));
     }
 
-    public function testCommonSimple() {
-        Profiler::startTimer('foo');
-        sleep(1);
-        Profiler::stopTimer();
-
-        $result = Profiler::getTimerStat();
-
-        $this->assertSame(1, count($result));
-        $this->checkTimer('foo', 1, '1.00', '1.00', $result['default']['foo']);
+    public function providerSetProfilerUnitVarName()
+    {
+        return [
+            'line ' . __LINE__ => [
+                'name' => 'foo',
+                'expect' => false,
+            ],
+            'line ' . __LINE__ => [
+                'name' => '$$foo',
+                'expect' => false,
+            ],
+            'line ' . __LINE__ => [
+                'name' => '$ foo',
+                'expect' => false,
+            ],
+            'line ' . __LINE__ => [
+                'name' => '_foo',
+                'expect' => false,
+            ],
+            'line ' . __LINE__ => [
+                'name' => '$_foo',
+                'expect' => true,
+            ],
+            'line ' . __LINE__ => [
+                'name' => '$ProfilerUnit',
+                'expect' => true,
+            ],
+        ];
     }
 
-    public function testCommonSimple2() {
-        Profiler::startTimer('foo');
-        usleep(300000);
-        Profiler::stopTimer();
-
-        Profiler::startTimer('bar');
-        usleep(200000);
-        Profiler::stopTimer();
-
-        Profiler::startTimer('bar');
-        usleep(100000);
-        Profiler::stopTimer();
-
-        $result = Profiler::getTimerStat();
-
-        $this->assertSame(2, count($result['default']));
-        $this->checkTimer('foo', 1, '0.30', '0.30', $result['default']['foo']);
-        $this->checkTimer('bar', 2, '0.30', '0.15', $result['default']['bar']);
+    /**
+     * @see \SimpleProfiler\Profiler::setProfilerUnitVarName
+     * @dataProvider providerSetProfilerUnitVarName
+     */
+    public function testSetProfilerUnitVarName($name, $expect)
+    {
+        $this->assertSame($expect, Profiler::setProfilerUnitVarName($name));
     }
 
-    public function testCommonGroups() {
-        for ($i = 0; $i < 10; ++$i) {
-            Profiler::startTimer('group.foo');
-            usleep(10000);
-            Profiler::stopTimer();
-            Profiler::startTimer('group.bar');
-            usleep(15000);
-            Profiler::stopTimer();
-        }
-
-        $result = Profiler::getTimerStat();
-
-        $this->assertSame(1, count($result));
-        $this->checkTimer('foo', 10, '0.10', '0.010', $result['group']['foo']);
-        $this->checkTimer('bar', 10, '0.15', '0.015', $result['group']['bar']);
+    public function providerSetProfilerUnitClass()
+    {
+        return [
+            'line ' . __LINE__ => [
+                'name' => FunctionUnit::class,
+                'expect' => true,
+            ],
+            'line ' . __LINE__ => [
+                'name' => DetailedFunctionUnit::class,
+                'expect' => true,
+            ],
+            'line ' . __LINE__ => [
+                'name' => 'SomeWrong',
+                'expect' => false,
+            ],
+            'line ' . __LINE__ => [
+                'name' => Profiler::class,
+                'expect' => false,
+            ],
+        ];
     }
 
-    public function testCommonGroups2() {
-        for ($i = 0; $i < 10; ++$i) {
-            Profiler::startTimer('foo.one');
-            usleep(10000);
-            Profiler::stopTimer();
-            Profiler::startTimer('bar.one');
-            usleep(15000);
-            Profiler::stopTimer();
-        }
-
-        $result = Profiler::getTimerStat();
-
-        $this->assertSame(2, count($result));
-        $this->checkTimer('one', 10, '0.10', '0.010', $result['foo']['one']);
-        $this->checkTimer('one', 10, '0.15', '0.015', $result['bar']['one']);
+    /**
+     * @see \SimpleProfiler\Profiler::setProfilerUnitClass
+     * @dataProvider providerSetProfilerUnitClass
+     */
+    public function testSetProfilerUnitClass($name, $expect)
+    {
+        $this->assertSame($expect, Profiler::setProfilerUnitClass($name));
     }
 
-    public function testCounter1() {
-        Profiler::counter('foo');
-        Profiler::counter('bar');
-        Profiler::counter('par');
-        Profiler::counter('foo');
-        Profiler::counter('foo');
-        Profiler::counter('bar', 3);
+    public function providerInjectProfilerUnitToCode()
+    {
+        return [
+            'line' . __LINE__ => [
+                'unit' => FunctionUnit::class,
+                'filter' => null,
+                'code' => '<?php
+                    class TestClass
+                    {
+                        public static function someFunction(int $a = 10): int
+                        {
+                            return $a * 2;
+                        }
+                    }
+                ',
+                'expect' => '<?php
+                    class TestClass
+                    {
+                        public static function someFunction(int $a = 10): int
+                        {$ProfilerUnit = \SimpleProfiler\Unit\FunctionUnit::create(__METHOD__, 4, 47);
+                            return $a * 2;
+                        }
+                    }
+                ',
+            ],
+            'line' . __LINE__ => [
+                'unit' => DetailedFunctionUnit::class,
+                'filter' => null,
+                'code' => '<?php
+                    class TestClass
+                    {
+                        public static function someFunction(int $a = 10): int
+                        {
+                            return $a * 2;
+                        }
+                    }
+                ',
+                'expect' => '<?php
+                    class TestClass
+                    {
+                        public static function someFunction(int $a = 10): int
+                        {$ProfilerUnit = \SimpleProfiler\Unit\DetailedFunctionUnit::create(__METHOD__, 4, 47);$ProfilerUnit->setArguments(func_get_args());
+                            return $ProfilerUnit->result = $a * 2;
+                        }
+                    }
+                ',
+            ],
+            'line' . __LINE__ => [
+                'unit' => FunctionUnit::class,
+                'filter' => '/^\{closure\}$/',
+                'code' => '<?php
+                    $get42 = function() {return 42};
+                ',
+                'expect' => '<?php
+                    $get42 = function() {$ProfilerUnit = \SimpleProfiler\Unit\FunctionUnit::create(__METHOD__, 2, 38);return 42};
+                ',
+            ],
+            'line' . __LINE__ => [
+                'unit' => DetailedFunctionUnit::class,
+                'filter' => null,
+                'code' => '<?php
+                    namespace Test\Some;
+                    abstract class TestClass
+                    {
+                        abstract public function getName();
 
-        $this->assertSame([
-            ['name' => 'foo', 'count' => 3],
-            ['name' => 'bar', 'count' => 4],
-            ['name' => 'par', 'count' => 1],
-        ], Profiler::getCounterStat());
+                        public function /*oops*/ test /*oops*/ (   )
+                        {
+                            return self::withParams(function(){return 42;});
+                        }
+
+                        /**
+                         * @param null $function
+                         * @return null
+                         */
+                        static protected function withParams(\Closure $function = null) {
+                            if (!$result = $function()) {
+                                throw new \Exception("Some message");
+                            }
+                            return $result;
+                        }
+                    }
+                ',
+                'expect' => '<?php
+                    namespace Test\Some;
+                    abstract class TestClass
+                    {
+                        abstract public function getName();
+
+                        public function /*oops*/ test /*oops*/ (   )
+                        {$ProfilerUnit = \SimpleProfiler\Unit\DetailedFunctionUnit::create(__METHOD__, 7, 40);$ProfilerUnit->setArguments(func_get_args());
+                            return $ProfilerUnit->result = self::withParams(function(){$ProfilerUnit = \SimpleProfiler\Unit\DetailedFunctionUnit::create(__METHOD__, 9, 85);$ProfilerUnit->setArguments(func_get_args());return $ProfilerUnit->result = 42;});
+                        }
+
+                        /**
+                         * @param null $function
+                         * @return null
+                         */
+                        static protected function withParams(\Closure $function = null) {$ProfilerUnit = \SimpleProfiler\Unit\DetailedFunctionUnit::create(__METHOD__, 16, 50);$ProfilerUnit->setArguments(func_get_args());
+                            if (!$result = $function()) {
+                                throw $ProfilerUnit->result = new \Exception("Some message");
+                            }
+                            return $ProfilerUnit->result = $result;
+                        }
+                    }
+                ',
+            ],
+            'line' . __LINE__ => [
+                'unit' => FunctionUnit::class,
+                'filter' => '/^get4(3|4)$/',
+                'code' => '<?php
+                    function get42(): int
+                    {
+                        return 42;
+                    };
+                    function get43(): int
+                    {
+                        return 43;
+                    };
+                    function get44(): int
+                    {
+                        return 44;
+                    };
+                    return get42() + get44();
+                ',
+                'expect' => '<?php
+                    function get42(): int
+                    {
+                        return 42;
+                    };
+                    function get43(): int
+                    {$ProfilerUnit = \SimpleProfiler\Unit\FunctionUnit::create(__METHOD__, 6, 29);
+                        return 43;
+                    };
+                    function get44(): int
+                    {$ProfilerUnit = \SimpleProfiler\Unit\FunctionUnit::create(__METHOD__, 10, 29);
+                        return 44;
+                    };
+                    return get42() + get44();
+                ',
+            ],
+        ];
     }
 
-    public function testInjectProfilerToCode() {
-        $file = trim(php_strip_whitespace(__DIR__ . '/../TestClass.php'));
-        $result = Profiler::injectProfilerToCode($file);
-
-        $this->assertSame(11, substr_count($result, '$SimpleProfilerTimer = new \SimpleProfiler\Timer'));
-
-        $expect =<<<'EXPECT'
-<?php
- namespace SimpleProfiler\Tests; $foo = function() {$SimpleProfilerTimer = new \SimpleProfiler\Timer('Profiler.' . __METHOD__ . '_h'); return 'foo'; }; $foo(); function bar() {$SimpleProfilerTimer = new \SimpleProfiler\Timer('Profiler.' . __METHOD__); return 'bar'; } bar(); class TestClass { public static function getSomeData() {$SimpleProfilerTimer = new \SimpleProfiler\Timer('Profiler.' . __METHOD__); return 'some data'; } public static function get_random_int ($min = 0, $max = 100) {$SimpleProfilerTimer = new \SimpleProfiler\Timer('Profiler.' . __METHOD__); return mt_rand($min, $max); } public static function __strange__name__ ($_a = 'Alexander') {$SimpleProfilerTimer = new \SimpleProfiler\Timer('Profiler.' . __METHOD__); return $_a; } public static function multi_line_name ( $a, $b, $c ) {$SimpleProfilerTimer = new \SimpleProfiler\Timer('Profiler.' . __METHOD__); return $a . $b . $c; } public static function anonymous() {$SimpleProfilerTimer = new \SimpleProfiler\Timer('Profiler.' . __METHOD__); $get42 = function() {$SimpleProfilerTimer = new \SimpleProfiler\Timer('Profiler.' . __METHOD__ . '_5h'); return 42; }; return $get42(); } public static function sleep() {$SimpleProfilerTimer = new \SimpleProfiler\Timer('Profiler.' . __METHOD__); usleep(100); } public static function withParams($function = null) {$SimpleProfilerTimer = new \SimpleProfiler\Timer('Profiler.' . __METHOD__); return $function; } public static function withParams2($a = 'function', $b = '){', $c = '{}') {$SimpleProfilerTimer = new \SimpleProfiler\Timer('Profiler.' . __METHOD__); return $a; } }
-EXPECT;
+    /**
+     * @see \SimpleProfiler\Profiler::injectProfilerUnitToCode
+     * @dataProvider providerInjectProfilerUnitToCode
+     */
+    public function testInjectProfilerUnitToCode($unit, $filter, $code, $expect)
+    {
+        $MethodReflection = new \ReflectionMethod(Profiler::class, 'injectProfilerUnitToCode');
+        $MethodReflection->setAccessible(true);
+        $result = $MethodReflection->invoke(null, $code, $unit, $filter);
 
         $this->assertSame($expect, $result);
     }
 
-    public function testProfilerCode() {
-        Profiler::loadFile(__DIR__ . '/../TestClass.php');
-
-        for ($i = 0 ; $i < 10; $i++) {
-            \SimpleProfiler\Tests\TestClass::anonymous();
-        }
-        \SimpleProfiler\Tests\TestClass::sleep();
-        for ($i = 0 ; $i < 2; $i++) {
-            \SimpleProfiler\Tests\TestClass::get_random_int();
-        }
-
-        $data = Profiler::getTimerStat();
-
-        $this->assertSame(6, count($data['Profiler']));
-
-        $this->assertSame(
-            [
-                'SimpleProfiler\Tests\{closure}_h',
-                'SimpleProfiler\Tests\bar',
-                'SimpleProfiler\Tests\TestClass::anonymous',
-                'SimpleProfiler\Tests\TestClass::SimpleProfiler\Tests\{closure}_5h',
-                'SimpleProfiler\Tests\TestClass::sleep',
-                'SimpleProfiler\Tests\TestClass::get_random_int',
-            ],
-            array_keys($data['Profiler'])
-        );
-
-        $this->assertSame(1, $data['Profiler']['SimpleProfiler\Tests\{closure}_h']['count']);
-        $this->assertSame(1, $data['Profiler']['SimpleProfiler\Tests\bar']['count']);
-        $this->assertSame(10, $data['Profiler']['SimpleProfiler\Tests\TestClass::anonymous']['count']);
-        $this->assertSame(10, $data['Profiler']['SimpleProfiler\Tests\TestClass::SimpleProfiler\Tests\{closure}_5h']['count']);
-        $this->assertSame(1, $data['Profiler']['SimpleProfiler\Tests\TestClass::sleep']['count']);
-        $this->assertSame(2, $data['Profiler']['SimpleProfiler\Tests\TestClass::get_random_int']['count']);
-    }
 }
