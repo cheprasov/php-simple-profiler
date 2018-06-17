@@ -167,7 +167,7 @@ Profiler::getLog() : string
 By default, the Profiler uses `\SimpleProfiler\Unit\FunctionUnit::class` for collecting statistic.
 You can set another unit
 ```
-Profiler::setProfilerUnitClass(\SimpleProfiler\Unit\DetailedFunctionUnit::class);
+Profiler::setProfilerUnitClass(string $profilerUnitClass): bool
 ```
 - `\SimpleProfiler\Unit\FunctionUnit::class` - the unit collects base stats without arguments and result.
 - `\SimpleProfiler\Unit\DetailedFunctionUnit::class` - the unit collects detailed stats with arguments and result.
@@ -175,7 +175,7 @@ Profiler::setProfilerUnitClass(\SimpleProfiler\Unit\DetailedFunctionUnit::class)
 
 Another function `setProfilerUnitVarName`, it changes var's name that will injected in code.
 ```
-Profiler::setProfilerUnitVarName('$ProfilerUnit');
+Profiler::setProfilerUnitVarName(string $profilerUnitVarName): bool
 ```
 
 ### 4. Usage Counter tool

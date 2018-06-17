@@ -13,6 +13,7 @@ namespace SimpleProfiler\Tests\Unit;
 use SimpleProfiler\Profiler;
 use SimpleProfiler\Unit\DetailedFunctionUnit;
 use SimpleProfiler\Unit\FunctionUnit;
+use \ExtraMocks\Mocks;
 
 class ProfilerTest extends \PHPUnit_Framework_TestCase
 {
@@ -21,6 +22,79 @@ class ProfilerTest extends \PHPUnit_Framework_TestCase
         Profiler::clear();
         Profiler::setProfilerUnitClass(\SimpleProfiler\Unit\FunctionUnit::class);
         Profiler::setProfilerUnitVarName('$ProfilerUnit');
+    }
+
+    /**
+     * @see \SimpleProfiler\Profiler::addUnit
+     * @see \SimpleProfiler\Profiler::closeUnit
+     * @see \SimpleProfiler\Profiler::getLastElement
+     * @runInSeparateProcess
+     */
+    public function testScenario1()
+    {
+        Mocks::mockGlobalFunction(
+            '\SimpleProfiler\microtime',
+            function () {
+                static $time = 0;
+                return ++$time;
+            }
+        );
+
+        Profiler::clear();
+        $this->assertSame(null, Profiler::getRawData());
+
+        $Unit = FunctionUnit::create('TestUnit', 10, 42);
+
+        $expect = [
+            'parent' => null,
+            'timeBeg' => 1,
+            'duration' => 0,
+            'items' => [
+                'TestUnit 10:42' => [
+                    'parent' => null,
+                    'name' => 'TestUnit 10:42',
+                    'count' => 1,
+                    'duration' => 0,
+                    'items' => [],
+                    'timeBeg' => 2,
+                ],
+            ],
+        ];
+        $expect['items']['TestUnit 10:42']['parent'] = &$expect;
+        $this->assertSame(print_r($expect, true), print_r(Profiler::getRawData(), true));
+
+        $Unit2 = FunctionUnit::create('TestUnit2', 12, 52);
+
+        $expect['items']['TestUnit 10:42']['items']['TestUnit2 12:52'] = [
+            'parent' => &$expect['items']['TestUnit 10:42'],
+            'name' => 'TestUnit2 12:52',
+            'count' => 1,
+            'duration' => 0,
+            'items' => [],
+            'timeBeg' => 3,
+        ];
+
+        $this->assertSame(print_r($expect, true), print_r(Profiler::getRawData(), true));
+        Profiler::closeUnit($Unit2);
+
+        $expect['duration'] = 3;
+        $expect['items']['TestUnit 10:42']['items']['TestUnit2 12:52'] = [
+            'parent' => &$expect['items']['TestUnit 10:42'],
+            'name' => 'TestUnit2 12:52',
+            'count' => 1,
+            'duration' => 1,
+            'data' => null,
+        ];
+
+        $this->assertSame(print_r($expect, true), print_r(Profiler::getRawData(), true));
+
+        Profiler::closeUnit($Unit);
+        $expect['duration'] = 4;
+        $expect['items']['TestUnit 10:42']['duration'] = 3;
+        $expect['items']['TestUnit 10:42']['data'] = null;
+        unset($expect['items']['TestUnit 10:42']['timeBeg']);
+
+        $this->assertSame(print_r($expect, true), print_r(Profiler::getRawData(), true));
     }
 
     public function providerSetProfilerUnitVarName()

@@ -59,7 +59,7 @@ class Profiler {
      * @param mixed $profilerUnitClass
      * @returns bool
      */
-    public static function setProfilerUnitClass(string $profilerUnitClass)
+    public static function setProfilerUnitClass(string $profilerUnitClass): bool
     {
         if (!is_subclass_of($profilerUnitClass, UnitInterface::class)) {
             return false;
@@ -172,6 +172,7 @@ class Profiler {
      * @param array $element
      * @param int $level
      * @param int $totalDuration
+     * @param int $num
      * @return string
      */
     protected static function formatElement($element, $level = 0, $totalDuration = 0, &$num = 0)
