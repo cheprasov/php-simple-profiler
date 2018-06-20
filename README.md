@@ -18,7 +18,7 @@ Or, you can just using simple tools like Stopwatch and Counter.
 ### 1. How to add the profiler to you project for automatic analysis of code
 Note. You can use profiler tools like 'Stopwatch' and 'Counter' without this step.
 
-All you need is open your 'autoload' function, and use the profiler's function for loading class.
+You need to open your 'autoload' function, and use the profiler's function for loading class.
 
 ```php
 \SimpleProfiler\Profiler::includeFile($classPath);
