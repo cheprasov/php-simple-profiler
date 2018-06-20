@@ -4,7 +4,7 @@ SimpleProfiler v3.0.0 for PHP >= 7.0
 =========
 
 The SimpleProfiler is a tool for automatic analysis of code.
-Or, you just using simple tools like Stopwatch and Counter.
+Or, you can just using simple tools like Stopwatch and Counter.
 
 ##### Features:
 - Easy to connect with a project if you want of analysis of your code.
